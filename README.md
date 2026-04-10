@@ -36,6 +36,10 @@ npx skills add . --skill gsopt
 
 The paper sources live separately in `bestquark/quantum_autoresearch`.
 
+## License
+
+MIT. See `LICENSE`.
+
 ## Setup
 
 ```bash

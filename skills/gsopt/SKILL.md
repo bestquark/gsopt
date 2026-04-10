@@ -1,6 +1,6 @@
 ---
 name: gsopt
-description: Optimize benchmark energy with a reproducible mutation loop, watchdogs, and per-run archives. Use when the user wants iterative code evolution for VQE, tensor networks, DMRG, AFQMC, or similar fixed-budget energy minimization examples.
+description: Optimize benchmark energy with a reproducible mutation loop, watchdogs, per-run archives, and targeted online research when better ideas are needed. Use when the user wants iterative code evolution for VQE, tensor networks, DMRG, AFQMC, or similar fixed-budget energy minimization examples.
 ---
 
 # GSOpt
@@ -96,7 +96,43 @@ uv run gsopt watchdog .
 - Once tiny tolerance or seed tweaks plateau, stop burning iterations on them alone.
 - Do not batch future evaluations, write menu-search code, or run offline probes outside the queued scorer.
 - Keep the benchmark family intact. Improve the method inside the benchmark; do not replace it with a different solver stack.
-- If the search space feels stale or underinformed, pair this skill with `quantum-scout` for targeted online idea generation before spending many more iterations.
+
+## Idea research mode
+
+When the search space feels stale or underinformed, do targeted online research
+before spending many more scored iterations. Adopt the mindset: you are a really
+smart quantum physicist who knows how to get the lowest-energy states possible
+under tight compute constraints. Be aggressive, but stay evidence-driven.
+
+Use targeted research only where it can materially change the mutation space:
+
+- diagnose the current bottleneck first: ansatz rigidity, bad initialization,
+  optimizer inefficiency, overparameterization, underexpressivity, or weak
+  continuation schedules
+- prefer primary sources: papers, official docs, and benchmark repos
+- translate what you find into concrete mutations that fit the repo's exact
+  solver stack and fixed wall-time budget
+- reject ideas that require a different backend, heavy offline preprocessing, or
+  a much larger runtime budget
+
+Focus the search on ideas like:
+
+- VQE: spin-adapted or symmetry-tied parameterizations, pair-doubles / compact
+  UCC variants, chemically motivated warm starts, staged optimizers, and ansatz
+  compression that improves 20-second convergence
+- TN / DMRG: stronger initial states, better bond-dimension schedules,
+  truncation/cutoff heuristics, timestep schedules, and symmetry-aware structure
+- AFQMC: stronger trial states, orbital basis choices, timestep / walker /
+  stabilization tradeoffs, and low-cost changes that reduce bias or variance
+  under fixed runtime
+
+If you research, keep the output compact and mutation-ready:
+
+1. current bottleneck
+2. 3 to 5 ranked ideas
+3. why each idea could help under the fixed budget
+4. the smallest plausible code mutation for the top 1 or 2 ideas
+5. links to the sources used
 
 ## Logging and recovery
 

@@ -5,11 +5,11 @@ Shared benchmark repo for fixed-budget energy minimization experiments, Optuna b
 ## Install the `gsopt` Skill
 
 `gsopt` now uses the `vercel-labs/skills` layout directly. The repo's
-top-level `skills/` directory is the only canonical skill bundle.
+top-level `skills/` directory is the only canonical skill bundle, and `gsopt`
+itself includes the targeted online idea-research guidance.
 
 ```bash
 npx skills add bestquark/gsopt --skill gsopt
-npx skills add bestquark/gsopt --skill quantum-scout
 ```
 
 For explicit agent targeting, use the flags supported by that CLI, for example:

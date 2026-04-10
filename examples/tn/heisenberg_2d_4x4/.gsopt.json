@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "lane": "tn",
+  "example_key": "heisenberg_2d_4x4",
+  "benchmark_arg": "model",
+  "benchmark_value": "heisenberg_2d_4x4",
+  "display_name": "heisenberg_2d_4x4 TN",
+  "source_file": "initial_script.py",
+  "source_template": "examples/tn/heisenberg_2d_4x4/initial_script.py",
+  "queue_script": "examples/tn/queued_track_iteration.py",
+  "restore_script": "examples/tn/restore_best_iteration.py",
+  "plot_script": "figs/tn/make_energy_figure.py",
+  "optuna_script": "examples/tn/optuna_baseline.py",
+  "snapshot_env": "AUTORESEARCH_TN_SNAPSHOT_ROOT",
+  "fig_dir_env": "AUTORESEARCH_TN_FIG_DIR",
+  "run_root_env": "AUTORESEARCH_TN_RUN_ROOT",
+  "optuna_root_env": "AUTORESEARCH_TN_OPTUNA_ROOT",
+  "default_iterations": 100,
+  "default_wall_seconds": 20.0,
+  "objective_metric": "final_energy",
+  "objective_text": "Lower the final energy after exactly 20 seconds without changing the Hamiltonian or system size.",
+  "support_files": [
+    "examples/tn/model_registry.py",
+    "examples/tn/reference_energies.py"
+  ],
+  "benchmark_storage_name": "heisenberg_2d_4x4"
+}

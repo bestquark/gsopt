@@ -1,0 +1,12 @@
+{
+  "run_dir": "examples/gibbs/runs/gibbs_tfim6_smoke",
+  "problem_label": "TFIM Gibbs-state approximation target (L=6, beta=2.0)",
+  "metric": "mean_trace_distance",
+  "ylabel": "Mean trace distance to the exact Gibbs state",
+  "total_points": 8,
+  "kept_improvements": 2,
+  "best_iteration": 2,
+  "best_value": 0.12927373470002174,
+  "best_label": "low-rank k=8",
+  "output": "/Users/lmantilla/Desktop/Internship/autoresearch/figs/gibbs/gibbs_tfim6_smoke_progress.png"
+}

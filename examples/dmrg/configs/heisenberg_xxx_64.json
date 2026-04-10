@@ -1,0 +1,32 @@
+{
+  "lane": "dmrg",
+  "problem_label": "Long Heisenberg XXX chain DMRG search",
+  "run_name": "dmrg_heisenberg_xxx_64_100x60s",
+  "iterations": 100,
+  "candidate_wall_seconds": 20.0,
+  "model": "heisenberg_xxx_64",
+  "seed": 42,
+  "objective": {
+    "metric": "final_energy",
+    "label": "Final energy",
+    "goal": "minimize"
+  },
+  "search": {
+    "proposal_policy": "mutate_best_plus_random",
+    "keep_top_k": 20,
+    "exploration_fraction": 0.25
+  },
+  "search_space": {
+    "bond_schedules": [[16, 32, 64], [16, 32, 64, 96], [24, 48, 96], [32, 64, 128], [32, 64, 128, 192]],
+    "cutoffs": [1e-08, 1e-10, 1e-12],
+    "solver_tols": [1e-04, 1e-05, 1e-06],
+    "max_sweeps": [6, 10, 14, 18],
+    "init_bond_dims": [8, 12, 16, 24]
+  },
+  "logging": {
+    "root": "examples/dmrg/runs",
+    "write_per_model_histories": true,
+    "write_iteration_summary_tsv": true,
+    "resume": true
+  }
+}

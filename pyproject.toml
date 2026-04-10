@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gsopt"
+version = "0.3.0"
+description = "OpenClaw-driven VQE ansatz search and reproducible molecule benchmarks built from Karpathy's autoresearch"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "matplotlib>=3.10.8",
+    "numpy>=2.2.6",
+    "cudaq>=0.14.0",
+    "openfermion>=1.7.1",
+    "openfermionpyscf>=0.5",
+    "pyscf>=2.8.0",
+    "qutip>=5.2.1",
+    "quimb>=1.11.2",
+    "scipy>=1.15.3",
+    "optuna>=3.6.1",
+    "torch>=2.7.0",
+]
+
+[project.scripts]
+gsopt = "benchkit.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["benchkit*", "examples*"]
+namespaces = true

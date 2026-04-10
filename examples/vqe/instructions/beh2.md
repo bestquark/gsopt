@@ -1,0 +1,39 @@
+Work only on the `BeH2` VQE benchmark.
+
+Before doing anything, make sure your current working directory is
+`/Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe`. Keep the
+session in that `vqe/` directory.
+
+Edit only:
+- `beh2/initial_script.py`
+
+Fixed evaluation command:
+`uv run python queued_track_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/beh2/initial_script.py --molecule BeH2 --wall-seconds 20 --max-parallel 1 --description "<one-line mutation summary>"`
+
+Restore-best command:
+`uv run python restore_best_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/beh2/initial_script.py --molecule BeH2`
+
+Goal:
+- lower the final `final_error` after exactly 20 seconds
+- chemical accuracy (`1e-3 Ha`) is the primary target
+
+Rules:
+1. Keep this as a CUDA-Q benchmark. Do not replace it with a pure NumPy statevector, another simulator stack, or a non-CUDA-Q evaluator.
+2. First run the untouched file through the fixed queued command. That baseline must archive as iteration 0.
+3. Then do exactly 100 mutated outer iterations, producing iterations 1 through 100.
+4. For iterations 1 through 100, one outer iteration = one code mutation + one queued 20-second evaluation.
+5. After each evaluation, if the status is `discard` or `crash`, run the restore-best command before the next mutation.
+6. Inspect the previous scored result before launching the next scored iteration. Do not launch batches of future iterations or pre-script multiple queued runs ahead of time.
+7. Do not write or leave behind detached/background controller scripts that keep submitting future iterations after the interactive turn ends.
+8. Do not run direct `initial_script.py` smoke tests for this loop.
+9. Do not run direct energy probes, parameter sweeps, `cudaq.observe` studies, or any other non-queued experiments to guide the search. Outside the queued scorer, only trivial syntax/import/runtime sanity checks are allowed.
+10. If the target `initial_script.py` file is missing or clearly corrupted, stop and report it. Do not reconstruct source from `__pycache__`, bytecode, decompilers, or other reverse-engineering steps.
+11. Do not use any `--wall-seconds` other than `20`.
+12. Do not change the molecule, CAS, or geometry.
+13. Do not turn the file into a hidden recipe bank, grid search, or menu of many internal methods. One outer iteration should test one explicit method.
+14. Ignore unrelated dirty git status entries. Do not edit unrelated files.
+15. Waiting in the FIFO queue is expected. Do not stop just because the queue is busy.
+16. Keep the code simple.
+17. You may optionally search online for ideas or implementation hints, but keep the local file, molecule, and fixed evaluation command unchanged.
+18. Treat chemical accuracy as the real success criterion. If the current method is still above `1e-3 Ha`, do not spend many iterations on tiny warm-start polishing or microscopic optimizer tweaks alone.
+19. If local tuning plateaus, prefer a material ansatz, parameterization, or optimizer-structure change over repeated radius/tolerance nudges.

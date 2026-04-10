@@ -1,0 +1,44 @@
+.DS_Store
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+worktrees/
+results/
+queue/
+
+# Agent prompt files (generated per-session by launchers)
+CLAUDE.md
+AGENTS.md
+!AGENTS.md
+
+# Experimental code/artifacts
+dev/
+
+# Results file
+results.tsv
+
+# Long-running experiment outputs
+runs/
+examples/*/runs/
+examples/*/*/runs/
+examples/*/*/run_*/
+examples/*/*/optuna_run_*/
+examples/*/benchmark_outputs/
+examples/*/snapshots/
+examples/*/eval_queue/
+examples/*/optuna/
+examples/*/optuna_source_*/
+examples/*/optuna_tracked_snapshots/
+examples/*/fresh_autoresearch_*/
+examples/*/rerun_snapshots_*/
+examples/*/*_track_*/
+examples/afqmc/configs/
+logs/
+experiment1_run.log

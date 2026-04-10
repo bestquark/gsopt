@@ -1,0 +1,23 @@
+{
+  "lane": "gibbs",
+  "problem_label": "TFIM Gibbs-state approximation target (L=6, beta=2.0)",
+  "run_name": "gibbs_tfim6_smoke",
+  "iterations": 8,
+  "seed": 42,
+  "cases": [
+    {"system": "tfim_critical", "L": 6, "beta": 2.0}
+  ],
+  "objective": {
+    "metric": "mean_trace_distance",
+    "label": "Mean trace distance to the exact Gibbs state",
+    "goal": "minimize"
+  },
+  "search": {
+    "exploration_fraction": 0.25,
+    "keep_top_k": 10
+  },
+  "logging": {
+    "root": "examples/gibbs/runs",
+    "resume": true
+  }
+}

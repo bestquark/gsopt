@@ -1,0 +1,9 @@
+id	molecule	kind	iteration	delta_e_before	delta_e_after	improvement_factor	description
+1	BH	Highlighted drop	4	6.080166e-06	8.195683e-08	74.187	small-radius COBYLA polish from best UCCSD point
+2	BH	Highlighted drop	6	3.787052e-08	8.195293e-10	46.210	tiny-radius COBYLA micro-step from best UCCSD point
+3	LiH	Highlighted drop	12	3.769757e-06	1.304089e-07	28.907	COBYLA refine spin-paired symmetric warm start
+4	LiH	Highlighted drop	25	1.063669e-08	3.758354e-10	28.301	COBYLA polish current best uccsd_full
+5	BeH2	Highlighted drop	5	4.747500e-04	9.322107e-05	5.093	warm_cobyla_r20 seed1005
+6	BeH2	Highlighted drop	26	6.817860e-06	1.904951e-06	3.579	warm_cobyla_r2 seed2026
+7	H2O	Highlighted drop	17	4.679476e-03	3.787004e-05	123.567	use spin-paired symmetric UCCSD matching CUDA-Q ordering
+8	H2O	Highlighted drop	24	2.049918e-05	1.033400e-05	1.984	anneal full-UCCSD warm-start radius to 0.0025

@@ -1,0 +1,47 @@
+{
+  "H2": {
+    "reference_energy": -1.137283834488502,
+    "reference_method": "FCI",
+    "basis": "sto-3g",
+    "charge": 0,
+    "spin": 0,
+    "wall_seconds": 0.19424920895835385,
+    "hf_energy": -1.1167593073964253
+  },
+  "LiH": {
+    "reference_energy": -7.882679296492703,
+    "reference_method": "FCI",
+    "basis": "sto-3g",
+    "charge": 0,
+    "spin": 0,
+    "wall_seconds": 0.03603704198030755,
+    "hf_energy": -7.862694947366676
+  },
+  "BH": {
+    "reference_energy": -24.809911830010986,
+    "reference_method": "FCI",
+    "basis": "sto-3g",
+    "charge": 0,
+    "spin": 0,
+    "wall_seconds": 0.05877941596554592,
+    "hf_energy": -24.752826554334753
+  },
+  "BeH2": {
+    "reference_energy": -15.595182356661589,
+    "reference_method": "FCI",
+    "basis": "sto-3g",
+    "charge": 0,
+    "spin": 0,
+    "wall_seconds": 0.05046275001950562,
+    "hf_energy": -15.560334935987175
+  },
+  "HF": {
+    "reference_energy": -98.59662417998764,
+    "reference_method": "FCI",
+    "basis": "sto-3g",
+    "charge": 0,
+    "spin": 0,
+    "wall_seconds": 0.02225170802557841,
+    "hf_energy": -98.57077998601423
+  }
+}

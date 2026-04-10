@@ -1,0 +1,32 @@
+{
+  "lane": "dmrg",
+  "problem_label": "Long Heisenberg XXX DMRG smoke search",
+  "run_name": "dmrg_heisenberg_xxx_64_smoke",
+  "iterations": 2,
+  "candidate_wall_seconds": 5.0,
+  "model": "heisenberg_xxx_64",
+  "seed": 7,
+  "objective": {
+    "metric": "final_energy",
+    "label": "Final energy",
+    "goal": "minimize"
+  },
+  "search": {
+    "proposal_policy": "mutate_best_plus_random",
+    "keep_top_k": 5,
+    "exploration_fraction": 0.5
+  },
+  "search_space": {
+    "bond_schedules": [[8, 16, 32], [16, 32, 64], [16, 32, 64, 96]],
+    "cutoffs": [1e-08, 1e-10],
+    "solver_tols": [1e-04, 1e-05],
+    "max_sweeps": [4, 6, 8],
+    "init_bond_dims": [4, 8]
+  },
+  "logging": {
+    "root": "examples/dmrg/runs",
+    "write_per_model_histories": true,
+    "write_iteration_summary_tsv": true,
+    "resume": true
+  }
+}

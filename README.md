@@ -4,6 +4,24 @@ Shared benchmark repo for fixed-budget energy minimization experiments, Optuna b
 
 ## Install the `gsopt` Skill
 
+Public installer surface for the `vercel-labs/skills` CLI:
+
+```bash
+npx skills add bestquark/gsopt --skill gsopt
+npx skills add bestquark/gsopt --skill quantum-scout
+```
+
+For explicit agent targeting, use the flags supported by that CLI, for example:
+
+```bash
+npx skills add bestquark/gsopt --skill gsopt -a codex
+npx skills add bestquark/gsopt --skill gsopt -a claude-code
+```
+
+The repo now exposes a top-level `skills/` tree specifically so `npx skills add bestquark/gsopt` can discover the bundled skills cleanly.
+
+Direct GitHub installer fallback for Codex:
+
 Codex:
 
 ```bash
@@ -33,6 +51,7 @@ Claude Code:
 - `examples/`: canonical benchmark tree
 - `figs/`: plotting scripts and generated figures
 - `benchkit/`: internal runtime behind `uv run gsopt`
+- `skills/`: public skill export surface for `npx skills add`
 - `ai-skills/gsopt/`: shared skill bundle
 - `ai-skills/quantum-scout/`: targeted online idea-research skill for quantum benchmarks
 

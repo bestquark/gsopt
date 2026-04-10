@@ -1,0 +1,4 @@
+interface:
+  display_name: "GSOpt"
+  short_description: "Scaffold and run reproducible energy-optimization campaigns"
+  default_prompt: "Use $gsopt to create a timestamped run directory, keep a complete mutation log, and drive a sequential fixed-budget energy minimization loop."

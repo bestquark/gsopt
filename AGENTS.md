@@ -1,6 +1,6 @@
 # Repo Guide for External Autoresearch Runs
 
-This repo is organized around `examples/`, `figs/`, `benchkit/`, and `ai-skills/`.
+This repo is organized around `examples/`, `figs/`, `benchkit/`, `skills/`, and `ai-skills/`.
 
 If you want the smallest possible agent-editable targets, prefer the benchmark-local `initial_script.py` files:
 
@@ -63,7 +63,7 @@ Figures:
 
 - Keep claims in the separate paper repo aligned with artifacts that actually exist in `examples/<lane>/<benchmark>/run_<timestamp>/`, `examples/<lane>/<benchmark>/optuna_run_<timestamp>/`, and `figs/<lane>/`.
 - Prefer the generated `examples/<lane>/<benchmark>/run_<timestamp>/` directories as the mutation surface for long agent campaigns.
-- Use the shared `ai-skills/gsopt/` skill as the canonical workflow wrapper.
+- Use the shared `ai-skills/gsopt/` skill as the canonical workflow wrapper, and `skills/` as the public installer surface for `npx skills add`.
 - Prefer editing the lane-specific method file rather than paper text first.
 - The active VQE benchmark is a fixed-budget CUDA-Q run on five molecules ordered from easier to harder: `BH`, `LiH`, `BeH2`, `H2O`, and `N2`.
 - For VQE external-agent runs, the agent should directly mutate its own molecule-specific `examples/vqe/<molecule>/initial_script.py`, not select from a predeclared ansatz/optimizer menu.

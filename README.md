@@ -4,7 +4,8 @@ Shared benchmark repo for fixed-budget energy minimization experiments, Optuna b
 
 ## Install the `gsopt` Skill
 
-Public installer surface for the `vercel-labs/skills` CLI:
+`gsopt` now uses the `vercel-labs/skills` layout directly. The repo's
+top-level `skills/` directory is the only canonical skill bundle.
 
 ```bash
 npx skills add bestquark/gsopt --skill gsopt
@@ -18,42 +19,18 @@ npx skills add bestquark/gsopt --skill gsopt -a codex
 npx skills add bestquark/gsopt --skill gsopt -a claude-code
 ```
 
-The repo now exposes a top-level `skills/` tree specifically so `npx skills add bestquark/gsopt` can discover the bundled skills cleanly.
-
-Direct GitHub installer fallback for Codex:
-
-Codex:
+For local testing from inside the repo itself:
 
 ```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo bestquark/gsopt \
-  --path ai-skills/gsopt
+npx skills add . --skill gsopt
 ```
-
-Restart Codex after installing so the skill appears in the command picker.
-
-Optional companion skill for targeted online quantum-method research:
-
-```bash
-python ~/.codex/skills/.system/skill-installer/scripts/install-skill-from-github.py \
-  --repo bestquark/gsopt \
-  --path ai-skills/quantum-scout
-```
-
-Claude Code:
-
-- If you work inside this repo, the project skill is already exposed at `.claude/skills/gsopt`.
-- The same is now true for `.claude/skills/quantum-scout`.
-- If you want the same skill in another project, copy or symlink `ai-skills/gsopt/` into that project's `.claude/skills/gsopt/`.
 
 ## Layout
 
 - `examples/`: canonical benchmark tree
 - `figs/`: plotting scripts and generated figures
 - `benchkit/`: internal runtime behind `uv run gsopt`
-- `skills/`: public skill export surface for `npx skills add`
-- `ai-skills/gsopt/`: shared skill bundle
-- `ai-skills/quantum-scout/`: targeted online idea-research skill for quantum benchmarks
+- `skills/`: canonical skill bundle for `npx skills add`
 
 `gsopt` is the public skill and CLI name. `benchkit/` is just the internal package that scaffolds runs, wraps evaluators, and tracks progress.
 

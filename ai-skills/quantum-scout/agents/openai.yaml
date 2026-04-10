@@ -1,4 +1,0 @@
-interface:
-  display_name: "Quantum Scout"
-  short_description: "Research stronger low-energy ideas from papers, docs, and benchmark repos"
-  default_prompt: "Use $quantum-scout to do targeted online research for better ansatzes, warm starts, optimizer schedules, and other low-energy ideas that fit the current benchmark and wall-time budget."

@@ -17,7 +17,7 @@ def _run_eval_wrapper(command: list[str], run_dir: Path | None):
     if not command:
         raise SystemExit("run-eval requires a command after `--`")
     repo_root = find_repo_root()
-    script = repo_root / "ai-skills" / "gsopt" / "scripts" / "run_gsopt.sh"
+    script = repo_root / "skills" / "gsopt" / "scripts" / "run_gsopt.sh"
     env = os.environ.copy()
     if run_dir is not None:
         env["GSOPT_RUN_DIR"] = str(run_dir)

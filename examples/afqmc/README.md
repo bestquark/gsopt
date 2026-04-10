@@ -22,6 +22,19 @@ The five active molecule lanes are:
 
 Each lane uses a fixed 20-second AFQMC production budget per scored run and is scored against a frozen full-CI reference in the same `sto-3g` basis.
 
+## Next periodic targets
+
+The current AFQMC implementation is still the validated molecular lane used by
+the paper. The next nonmolecular extension should move to four compact
+periodic-electronic systems:
+
+- `heg_14e_rs1_gamma`: 3D homogeneous electron gas as a clean metallic benchmark
+- `h10_chain_pbc`: periodic hydrogen chain as a correlation-sensitive bond-stretching benchmark
+- `lih_rocksalt_prim`: LiH primitive cell as a compact ionic insulator
+- `diamond_prim`: diamond primitive cell as a compact covalent semiconductor
+
+See [PERIODIC_TARGETS.md](/Users/lmantilla/Desktop/Internship/gsopt/examples/afqmc/PERIODIC_TARGETS.md) for the rationale behind this proposed set.
+
 ## Optuna baseline
 
 Use the benchmark-local Optuna baseline from inside a molecule directory:

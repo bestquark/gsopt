@@ -103,7 +103,7 @@ Active lanes:
 
 - `examples/vqe/`: CUDA-Q molecular VQE
 - `examples/tn/`: tensor-network ground-state search
-- `examples/afqmc/`: molecular AFQMC
+- `examples/afqmc/`: molecular AFQMC, plus the proposed periodic-target roadmap in `examples/afqmc/PERIODIC_TARGETS.md`
 
 Retained but not recently tested:
 

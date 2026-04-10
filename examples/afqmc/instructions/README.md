@@ -1,6 +1,6 @@
 # Parallel AFQMC Sessions
 
-Start Codex from `/Users/lmantilla/Desktop/Internship/autoresearch/examples/afqmc`.
+Start Codex from `/Users/lmantilla/Desktop/Internship/gsopt/examples/afqmc`.
 Keep the session in that `afqmc/` directory.
 
 Open five Codex windows in the same repo tree and use one file per window:
@@ -30,3 +30,7 @@ internal methods. One outer iteration should test one explicit method.
 Scored evaluations are intentionally serialized so every run sees the same
 machine and wall-clock budget, and each scored AFQMC run caps BLAS/OpenMP
 thread counts at 10.
+
+The currently validated AFQMC lane is still the five-molecule set above. The
+next periodic-electronic extension planned for this directory is documented in
+`PERIODIC_TARGETS.md`.

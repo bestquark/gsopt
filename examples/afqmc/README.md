@@ -42,6 +42,23 @@ GSOpt workflow:
 
 ```bash
 cd examples/afqmc/h8_cube_pbc
+codex
+```
+
+```text
+$gsopt Run 100 iterations in the current directory. Lower the 20-second absolute energy error without changing the evaluator contract.
+```
+
+Claude Code may expose the same skill as:
+
+```text
+/gsopt 100 . Lower the 20-second absolute energy error without changing the evaluator contract.
+```
+
+Manual scaffolding fallback:
+
+```bash
+cd examples/afqmc/h8_cube_pbc
 uv run gsopt 100 . "Lower the 20-second absolute energy error."
 ```
 

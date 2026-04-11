@@ -31,20 +31,52 @@ The mutation-loop runtime lives under `skills/gsopt/scripts/`. Lane-local queue,
 
 ## GSOpt Workflow
 
-Open an agent in a benchmark directory and scaffold a run:
+Recommended: use the installed skill from inside Codex or Claude Code.
+
+Codex example:
+
+```bash
+cd examples/vqe/bh
+codex
+```
+
+```text
+$gsopt Run 100 iterations in the current directory. Bias toward structural ansatz improvements.
+```
+
+Claude Code example:
+
+```bash
+cd examples/vqe/bh
+claude
+```
+
+```text
+/gsopt 100 . Bias toward structural ansatz improvements.
+```
+
+You can also target a benchmark from the repo root instead of `cd`-ing first:
+
+```text
+$gsopt Run 100 iterations on examples/tn/tfim_2d_4x4. Improve the 20-second final energy.
+```
+
+Manual fallback: scaffold the run directory from the shell without invoking an agent yet:
 
 ```bash
 cd examples/vqe/bh
 uv run gsopt 100 . "Bias toward structural ansatz improvements."
 ```
 
-Or target a benchmark from the repo root:
+Or from the repo root:
 
 ```bash
 uv run gsopt 100 examples/tn/tfim_2d_4x4 "Improve the 20-second final energy."
 ```
 
-That creates `run_<timestamp>/` inside the benchmark directory. Work inside that run directory:
+`uv run gsopt ...` only creates `run_<timestamp>/` and the local GSOpt runtime files. It does not choose or launch the optimizing model by itself. The optimizing agent is whichever Codex or Claude session you use afterward, or whichever agent you relaunch with `campaign.py`.
+
+After scaffolding, work inside the run directory:
 
 ```bash
 python3 run_eval.py -- uv run python evaluate.py --description "archive untouched baseline"
@@ -53,6 +85,8 @@ uv run python restore_best.py
 uv run python plot.py
 python3 watchdog.py
 python3 campaign.py --agent codex --search
+python3 campaign.py --agent codex --model <model-name> --search
+python3 campaign.py --agent claude --model <model-name>
 ```
 
 Each benchmark directory follows the same local pattern:

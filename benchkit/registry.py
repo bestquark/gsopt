@@ -90,8 +90,8 @@ VQE_LANE = LaneSpec(
     optuna_root_env="AUTORESEARCH_VQE_OPTUNA_ROOT",
     default_iterations=100,
     default_wall_seconds=20.0,
-    objective_metric="abs_final_error",
-    objective_text="Lower the final energy error after exactly 20 seconds. Chemical accuracy (1e-3 Ha) is the primary target.",
+    objective_metric="final_energy",
+    objective_text="Lower the final energy after exactly 20 seconds. Exact-energy error and chemical accuracy are offline comparison metrics, not the live score.",
 )
 
 TN_LANE = LaneSpec(
@@ -125,8 +125,8 @@ AFQMC_LANE = LaneSpec(
     optuna_root_env="AUTORESEARCH_AFQMC_OPTUNA_ROOT",
     default_iterations=100,
     default_wall_seconds=20.0,
-    objective_metric="abs_final_error",
-    objective_text="Lower the final absolute periodic-cell energy error after exactly 20 seconds without changing the system geometry or basis.",
+    objective_metric="final_energy",
+    objective_text="Lower the final periodic-cell energy after exactly 20 seconds without changing the system geometry or basis. Reference error is an offline comparison metric.",
     support_files=("examples/afqmc/model_registry.py", "examples/afqmc/reference_energies.py"),
 )
 
@@ -143,8 +143,8 @@ DMRG_LANE = LaneSpec(
     optuna_root_env=None,
     default_iterations=100,
     default_wall_seconds=20.0,
-    objective_metric="excess_energy",
-    objective_text="Lower the final excess energy after exactly 20 seconds without changing the Hamiltonian or chain size.",
+    objective_metric="final_energy",
+    objective_text="Lower the final energy after exactly 20 seconds without changing the Hamiltonian or chain size. Excess energy is an offline comparison metric.",
 )
 
 LANE_SPECS = {

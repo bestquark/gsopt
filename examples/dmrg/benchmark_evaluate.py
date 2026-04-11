@@ -5,7 +5,12 @@ import json
 from pathlib import Path
 
 from examples.evaluator_utils import resolve_source_file, run_source_script
-from examples.dmrg.reference_energies import reference_energy
+
+REFERENCE_FIELDS = {
+    "reference_energy",
+    "excess_energy",
+    "excess_energy_per_site",
+}
 
 
 def main(*, default_source: str = "simple_dmrg.py") -> int:
@@ -18,14 +23,10 @@ def main(*, default_source: str = "simple_dmrg.py") -> int:
         result = run_source_script(source_file, args.wall_seconds)
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
-    model = str(result["model"])
-    ref_energy = reference_energy(model)
-    if ref_energy is not None:
-        result["reference_energy"] = ref_energy
-        result["excess_energy"] = float(result["final_energy"]) - ref_energy
-        result["excess_energy_per_site"] = float(result["energy_per_site"]) - (ref_energy / int(result["chain_length"]))
-    result.setdefault("metric", "excess_energy")
-    result["score"] = float(result.get("excess_energy", result["final_energy"]))
+    result["metric"] = "final_energy"
+    result["score"] = float(result["final_energy"])
     result.setdefault("lower_is_better", True)
+    for key in REFERENCE_FIELDS:
+        result.pop(key, None)
     print(json.dumps(result, indent=2))
     return 0

@@ -298,7 +298,7 @@ def main():
 
         final_energy = float(result["final_energy"])
         excess_energy = None if ref_energy is None else final_energy - ref_energy
-        objective_value = excess_energy if excess_energy is not None else final_energy
+        objective_value = final_energy
         energy_per_site = float(result["energy_per_site"])
         chain_length = int(result["chain_length"])
         excess_per_site = None if excess_energy is None else excess_energy / chain_length

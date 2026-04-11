@@ -4,11 +4,16 @@ import ast
 import csv
 import difflib
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from examples.vqe.reference_energies import reference_energy
+
 SNAPSHOT_ROOT = ROOT / "examples" / "vqe" / "snapshots"
 OUTPUT = ROOT / "overleaf" / "generated_vqe_improvement_tables.tex"
 ORDER = ["bh", "lih", "beh2", "h2o"]
@@ -144,15 +149,28 @@ def load_rows(stem: str) -> list[dict[str, str]]:
         return [row for row in reader if row.get("iteration")]
 
 
+def row_error(stem: str, row: dict[str, str]) -> float | None:
+    if row.get("abs_final_error"):
+        return abs(float(row["abs_final_error"]))
+    if not row.get("final_energy"):
+        return None
+    target = reference_energy(MOLECULE_NAMES[stem].replace(r"\textsubscript{2}", "2"))
+    if target is None:
+        return None
+    return abs(float(row["final_energy"]) - target)
+
+
 def improvement_events(stem: str) -> list[Improvement]:
     rows = load_rows(stem)
     events: list[Improvement] = []
     best_iter: int | None = None
     best_error: float | None = None
     for row in rows:
-        if row.get("status") != "keep" or not row.get("abs_final_error"):
+        if row.get("status") != "keep":
             continue
-        error = float(row["abs_final_error"])
+        error = row_error(stem, row)
+        if error is None:
+            continue
         iteration = int(row["iteration"])
         if best_error is None:
             best_iter = iteration

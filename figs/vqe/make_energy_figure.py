@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from plot_style import apply_style, finish_axes
+from examples.vqe.reference_energies import reference_energy
 
 LANE_DIR = ROOT / "examples" / "vqe"
 CONFIG_DIR = LANE_DIR / "configs"
@@ -153,6 +154,19 @@ def comparison_autoresearch_records(config: dict) -> list[dict]:
     return [record for record in records if int(record["iteration"]) > 0]
 
 
+def vqe_delta(result: dict, molecule: str) -> float | None:
+    if result.get("abs_final_error") is not None:
+        return max(abs(float(result["abs_final_error"])), DELTA_FLOOR)
+    if result.get("final_error") is not None:
+        return max(abs(float(result["final_error"])), DELTA_FLOOR)
+    target = result.get("target_energy")
+    if target is None:
+        target = reference_energy(molecule)
+    if target is None:
+        return None
+    return max(abs(float(result["final_energy"]) - float(target)), DELTA_FLOOR)
+
+
 def make_combined_plot(ax, configs: list[dict]):
     colors = plt.get_cmap("tab10")
     min_iteration = 0
@@ -169,13 +183,19 @@ def make_combined_plot(ax, configs: list[dict]):
             continue
 
         result0 = records[0]["result"]
-        exact_energy = float(result0["target_energy"])
-        molecule = result0["molecule"]
+        molecule = str(result0.get("molecule", config["molecule"]))
         cas = tuple(result0["cas"])
         color = colors(idx % 10)
 
-        xs = [int(record["iteration"]) for record in records]
-        ys = [max(float(record["final_energy"]) - exact_energy, DELTA_FLOOR) for record in records]
+        points = [
+            (int(record["iteration"]), vqe_delta(record["result"], molecule))
+            for record in records
+        ]
+        points = [(iteration, delta) for iteration, delta in points if delta is not None]
+        if not points:
+            continue
+        xs = [iteration for iteration, _delta in points]
+        ys = [delta for _iteration, delta in points]
         running = []
         best = float("inf")
         for value in ys:
@@ -256,39 +276,52 @@ def make_comparison_plot(ax, configs: list[dict]):
             continue
 
         base_record = (autoresearch_records or optuna_records)[0]["result"]
-        exact_energy = float(base_record["target_energy"])
-        molecule = base_record["molecule"]
+        molecule = str(base_record.get("molecule", config["molecule"]))
         cas = tuple(base_record["cas"])
         color = colors(idx % 10)
 
         if autoresearch_records:
-            xs = list(range(1, len(autoresearch_records) + 1))
-            ys = [max(float(record["final_energy"]) - exact_energy, DELTA_FLOOR) for record in autoresearch_records]
+            points = [
+                (index, vqe_delta(record["result"], molecule))
+                for index, record in enumerate(autoresearch_records, start=1)
+            ]
+            points = [(iteration, delta) for iteration, delta in points if delta is not None]
+            xs = [iteration for iteration, _delta in points]
+            ys = [delta for _iteration, delta in points]
             running = []
             best = float("inf")
             for value in ys:
                 best = min(best, value)
                 running.append(best)
-            min_iteration = min(min_iteration, min(xs))
-            max_iteration = max(max_iteration, max(xs))
-            all_deltas.extend(ys)
-            ax.step(xs, running, where="post", color=color, linewidth=3.0, zorder=2)
+            if ys:
+                min_iteration = min(min_iteration, min(xs))
+                max_iteration = max(max_iteration, max(xs))
+                all_deltas.extend(ys)
+                ax.step(xs, running, where="post", color=color, linewidth=3.0, zorder=2)
 
         if optuna_records:
-            xs = list(range(1, len(optuna_records) + 1))
-            ys = [max(float(record["final_energy"]) - exact_energy, DELTA_FLOOR) for record in optuna_records]
+            points = [
+                (index, vqe_delta(record["result"], molecule))
+                for index, record in enumerate(optuna_records, start=1)
+            ]
+            points = [(iteration, delta) for iteration, delta in points if delta is not None]
+            xs = [iteration for iteration, _delta in points]
+            ys = [delta for _iteration, delta in points]
             if autoresearch_records and ys:
                 # Evaluation 1 is the shared seeded start for both methods.
-                ys[0] = max(float(autoresearch_records[0]["final_energy"]) - exact_energy, DELTA_FLOOR)
+                first_autoresearch = vqe_delta(autoresearch_records[0]["result"], molecule)
+                if first_autoresearch is not None:
+                    ys[0] = first_autoresearch
             running = []
             best = float("inf")
             for value in ys:
                 best = min(best, value)
                 running.append(best)
-            min_iteration = min(min_iteration, min(xs))
-            max_iteration = max(max_iteration, max(xs))
-            all_deltas.extend(ys)
-            ax.step(xs, running, where="post", color=color, linewidth=2.6, linestyle=OPTUNA_LINESTYLE, zorder=4)
+            if ys:
+                min_iteration = min(min_iteration, min(xs))
+                max_iteration = max(max_iteration, max(xs))
+                all_deltas.extend(ys)
+                ax.step(xs, running, where="post", color=color, linewidth=2.6, linestyle=OPTUNA_LINESTYLE, zorder=4)
 
         molecule_handles.append(
             Line2D(

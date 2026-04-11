@@ -89,12 +89,22 @@ python3 campaign.py --agent codex --model <model-name> --search
 python3 campaign.py --agent claude --model <model-name>
 ```
 
+Quickly inspect the mutation history for any run:
+
+```bash
+uv run python show_gsopt_log.py examples/afqmc/h8_cube_pbc
+uv run python show_gsopt_log.py examples/afqmc/h8_cube_pbc/run_<timestamp>
+```
+
 Each benchmark directory follows the same local pattern:
 
 - one editable method file such as `simple_vqe.py`, `initial_script.py`, or `simple_dmrg.py`
 - `evaluate.py` for scored evaluation
 - `optuna_baseline.py` for the separate internal baseline
 - `.gsopt.json` describing the benchmark to the GSOpt runtime
+
+For VQE, AFQMC, and DMRG, the live GSOpt score is now the evaluator's `final_energy`.
+Exact-energy error, excess energy, and chemical-accuracy comparisons are kept for offline figures and tables.
 
 If you use GSOpt on a non-repo benchmark, the directory only needs:
 

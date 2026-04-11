@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 from plot_style import apply_style, finish_axes
 
 from examples.afqmc.model_registry import ACTIVE_SYSTEMS, PRETTY_LABELS
+from examples.afqmc.reference_energies import reference_energy
 
 LANE_DIR = ROOT / "examples" / "afqmc"
 SNAPSHOT_ROOT = Path(os.environ.get("AUTORESEARCH_AFQMC_SNAPSHOT_ROOT", LANE_DIR / "snapshots"))
@@ -102,6 +103,17 @@ def locate_optuna_root(system: str) -> Path | None:
     return None
 
 
+def afqmc_error(result: dict, system: str) -> float | None:
+    if result.get("abs_final_error") is not None:
+        return max(abs(float(result["abs_final_error"])), DELTA_FLOOR)
+    if result.get("final_error") is not None:
+        return max(abs(float(result["final_error"])), DELTA_FLOOR)
+    target = reference_energy(system)
+    if target is None:
+        return None
+    return max(abs(float(result["final_energy"]) - target), DELTA_FLOOR)
+
+
 def plot_combined(ax):
     cmap = plt.get_cmap("tab10")
     all_errors: list[float] = []
@@ -114,8 +126,15 @@ def plot_combined(ax):
         if not records:
             continue
         color = cmap(idx % 10)
-        xs = [int(record["iteration"]) for record in records]
-        ys = [max(abs(float(record["result"]["final_error"])), DELTA_FLOOR) for record in records]
+        points = [
+            (int(record["iteration"]), afqmc_error(record["result"], system))
+            for record in records
+        ]
+        points = [(iteration, error) for iteration, error in points if error is not None]
+        if not points:
+            continue
+        xs = [iteration for iteration, _error in points]
+        ys = [error for _iteration, error in points]
         running = []
         best = float("inf")
         for value in ys:
@@ -161,32 +180,44 @@ def plot_comparison(ax):
         color = cmap(idx % 10)
 
         if autoresearch_records:
-            xs = [int(record["iteration"]) for record in autoresearch_records]
-            ys = [max(abs(float(record["result"]["final_error"])), DELTA_FLOOR) for record in autoresearch_records]
+            points = [
+                (int(record["iteration"]), afqmc_error(record["result"], system))
+                for record in autoresearch_records
+            ]
+            points = [(iteration, error) for iteration, error in points if error is not None]
+            xs = [iteration for iteration, _error in points]
+            ys = [error for _iteration, error in points]
             running = []
             best = float("inf")
             for value in ys:
                 best = min(best, value)
                 running.append(best)
-            all_errors.extend(ys)
-            min_iteration = min(min_iteration, min(xs))
-            max_iteration = max(max_iteration, max(xs))
-            ax.scatter(xs, ys, s=28, color=color, alpha=0.16, zorder=1)
-            ax.step(xs, running, where="post", color=color, linewidth=3.0, zorder=2)
+            if ys:
+                all_errors.extend(ys)
+                min_iteration = min(min_iteration, min(xs))
+                max_iteration = max(max_iteration, max(xs))
+                ax.scatter(xs, ys, s=28, color=color, alpha=0.16, zorder=1)
+                ax.step(xs, running, where="post", color=color, linewidth=3.0, zorder=2)
 
         if optuna_records:
-            xs = [int(record["iteration"]) for record in optuna_records]
-            ys = [max(abs(float(record["result"]["final_error"])), DELTA_FLOOR) for record in optuna_records]
+            points = [
+                (int(record["iteration"]), afqmc_error(record["result"], system))
+                for record in optuna_records
+            ]
+            points = [(iteration, error) for iteration, error in points if error is not None]
+            xs = [iteration for iteration, _error in points]
+            ys = [error for _iteration, error in points]
             running = []
             best = float("inf")
             for value in ys:
                 best = min(best, value)
                 running.append(best)
-            all_errors.extend(ys)
-            min_iteration = min(min_iteration, min(xs))
-            max_iteration = max(max_iteration, max(xs))
-            ax.scatter(xs, ys, s=32, marker="x", color=color, alpha=0.34, zorder=3)
-            ax.step(xs, running, where="post", color=color, linewidth=2.6, linestyle="--", zorder=4)
+            if ys:
+                all_errors.extend(ys)
+                min_iteration = min(min_iteration, min(xs))
+                max_iteration = max(max_iteration, max(xs))
+                ax.scatter(xs, ys, s=32, marker="x", color=color, alpha=0.34, zorder=3)
+                ax.step(xs, running, where="post", color=color, linewidth=2.6, linestyle="--", zorder=4)
 
         system_handles.append(Line2D([0], [0], color=color, linewidth=3.0, label=PRETTY_LABELS[system]))
 

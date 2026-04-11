@@ -6,6 +6,12 @@ from pathlib import Path
 
 from examples.evaluator_utils import resolve_source_file, run_source_script
 
+REFERENCE_FIELDS = {
+    "reference_energy",
+    "final_error",
+    "abs_final_error",
+}
+
 
 def main(*, default_source: str = "initial_script.py") -> int:
     parser = argparse.ArgumentParser(description="Evaluate one periodic electronic benchmark source file.")
@@ -17,8 +23,10 @@ def main(*, default_source: str = "initial_script.py") -> int:
         result = run_source_script(source_file, args.wall_seconds)
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
-    result.setdefault("metric", "abs_final_error")
-    result["score"] = float(result.get("abs_final_error", abs(float(result["final_error"]))))
+    result["metric"] = "final_energy"
+    result["score"] = float(result["final_energy"])
     result.setdefault("lower_is_better", True)
+    for key in REFERENCE_FIELDS:
+        result.pop(key, None)
     print(json.dumps(result, indent=2))
     return 0

@@ -126,8 +126,9 @@ def _build_launch_spec(
         ]
         if model:
             cmd.extend(["-m", model])
-        if search:
-            cmd.append("--search")
+        # Current Codex CLI exposes live search on the interactive command but
+        # not on `codex exec`, so ignore the run-level search flag here rather
+        # than generating repeated hard failures.
         cmd.extend(agent_args)
         cmd.append(prompt)
         return LaunchSpec(name="codex", command=cmd)

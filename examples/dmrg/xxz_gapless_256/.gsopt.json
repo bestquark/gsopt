@@ -18,8 +18,8 @@
   "optuna_root_env": null,
   "default_iterations": 100,
   "default_wall_seconds": 20.0,
-  "objective_metric": "excess_energy",
-  "objective_text": "Lower the final excess energy after exactly 20 seconds without changing the Hamiltonian or chain size.",
+  "objective_metric": "final_energy",
+  "objective_text": "Lower the final energy after exactly 20 seconds without changing the Hamiltonian or chain size. Excess energy is an offline comparison metric.",
   "support_files": [],
   "benchmark_storage_name": "xxz_gapless_256"
 }

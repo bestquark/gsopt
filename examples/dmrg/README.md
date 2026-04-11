@@ -33,7 +33,7 @@ GSOpt workflow:
 
 ```bash
 cd examples/dmrg/heisenberg_xxx_384
-uv run gsopt 100 . "Lower the 20-second excess energy."
+uv run gsopt 100 . "Lower the 20-second final energy."
 ```
 
 Benchmark-local Optuna baseline:

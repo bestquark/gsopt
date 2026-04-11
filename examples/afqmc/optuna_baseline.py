@@ -216,7 +216,7 @@ def main():
                 {
                     "trial": trial.number,
                     "status": result.get("status", "keep"),
-                    "objective": float(result["abs_final_error"]),
+                    "objective": float(result["final_energy"]),
                     "final_energy": float(result["final_energy"]),
                     "reference_energy": float(result.get("reference_energy", target_energy)),
                     "final_error": float(result["final_error"]),
@@ -228,7 +228,7 @@ def main():
         )
         trial.set_user_attr("status", result.get("status", "keep"))
         trial.set_user_attr("trial_dir", str(trial_dir))
-        return float(result["abs_final_error"])
+        return float(result["final_energy"])
 
     remaining_trials = max(0, args.trials - len(study.trials))
     if remaining_trials > 0:

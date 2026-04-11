@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from plot_style import apply_style, finish_axes
+from examples.vqe.reference_energies import reference_energy
 
 SNAPSHOT_ROOT = ROOT / "examples" / "vqe" / "snapshots"
 FIG_DIR = Path(__file__).resolve().parent
@@ -100,15 +101,26 @@ def load_rows(stem: str) -> list[dict]:
     return rows
 
 
-def running_best_points(rows: list[dict]) -> tuple[list[int], list[float], list[float]]:
+def row_error(stem: str, row: dict) -> float | None:
+    if row.get("abs_final_error"):
+        return max(abs(float(row["abs_final_error"])), DELTA_FLOOR)
+    if not row.get("final_energy"):
+        return None
+    target = reference_energy(MOLECULE_NAMES[stem])
+    if target is None:
+        return None
+    return max(abs(float(row["final_energy"]) - target), DELTA_FLOOR)
+
+
+def running_best_points(stem: str, rows: list[dict]) -> tuple[list[int], list[float], list[float]]:
     xs: list[int] = []
     ys: list[float] = []
     running: list[float] = []
     best = float("inf")
     for row in rows:
-        if not row.get("abs_final_error"):
+        delta = row_error(stem, row)
+        if delta is None:
             continue
-        delta = max(float(row["abs_final_error"]), DELTA_FLOOR)
         xs.append(int(row["iteration"]))
         ys.append(delta)
         best = min(best, delta)
@@ -120,9 +132,11 @@ def improvement_events(stem: str, molecule: str, rows: list[dict]) -> list[Impro
     best = None
     events: list[Improvement] = []
     for row in rows:
-        if row.get("status") != "keep" or not row.get("abs_final_error"):
+        if row.get("status") != "keep":
             continue
-        error = max(float(row["abs_final_error"]), DELTA_FLOOR)
+        error = row_error(stem, row)
+        if error is None:
+            continue
         if best is None:
             best = error
             continue
@@ -202,7 +216,7 @@ def plot(ax):
         if not rows:
             continue
         molecule = MOLECULE_NAMES[stem]
-        xs, ys, running = running_best_points(rows)
+        xs, ys, running = running_best_points(stem, rows)
         if not xs:
             continue
         color = colors(idx % 10)

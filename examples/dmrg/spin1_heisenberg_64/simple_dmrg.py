@@ -52,12 +52,6 @@ class RunConfig:
 
 
 MODEL_SPECS = {
-    "heisenberg_xxx_192": ModelSpec(
-        name="heisenberg_xxx_192",
-        spin=0.5,
-        chain_length=192,
-        bond_terms=((1.0, "sx", "sx"), (1.0, "sy", "sy"), (1.0, "sz", "sz")),
-    ),
     "xxz_gapless_256": ModelSpec(
         name="xxz_gapless_256",
         spin=0.5,

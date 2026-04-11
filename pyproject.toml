@@ -23,9 +23,9 @@ dependencies = [
 ]
 
 [project.scripts]
-gsopt = "benchkit.cli:main"
+gsopt = "skills.gsopt.scripts.gsopt_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["benchkit*", "examples*"]
+include = ["benchkit*", "examples*", "skills*"]
 namespaces = true

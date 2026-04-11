@@ -1,7 +1,7 @@
 ## AFQMC Benchmark
 
 This lane benchmarks fixed-wall-time molecular AFQMC using `PySCF + ipie`.
-Each molecule directory exposes `initial_script.py`, `evaluate.py`, and `optuna_baseline.py`. The search
+Each molecule directory exposes `initial_script.py` and `evaluate.py`. The search
 space is intentionally bounded to AFQMC-relevant choices such as:
 
 - single-determinant trial family (`rhf` or `uhf`)
@@ -37,11 +37,10 @@ See [PERIODIC_TARGETS.md](/Users/lmantilla/Desktop/Internship/gsopt/examples/afq
 
 ## Optuna baseline
 
-Use the benchmark-local Optuna baseline from inside a molecule directory:
+Use the shared lane-level Optuna baseline:
 
 ```bash
-cd examples/afqmc/h2
-uv run python optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/afqmc/optuna_baseline.py --script examples/afqmc/h2/initial_script.py --molecule H2 --wall-seconds 20 --trials 100
 ```
 
 That creates `examples/afqmc/<molecule>/optuna_run_<timestamp>/`.

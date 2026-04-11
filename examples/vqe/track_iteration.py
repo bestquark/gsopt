@@ -135,14 +135,14 @@ def snapshot_source_file(root: Path) -> Path:
                     return candidate
         except json.JSONDecodeError:
             pass
-    for name in ("initial_script.py", "simple_vqe.py"):
+    for name in ("simple_vqe.py",):
         candidate = root / name
         if candidate.exists():
             return candidate
     python_files = sorted(root.glob("*.py"))
     if python_files:
         return python_files[0]
-    return root / "initial_script.py"
+    return root / "simple_vqe.py"
 
 
 def write_diff(previous_file: Path | None, current_file: Path, output_file: Path):
@@ -237,7 +237,7 @@ def append_results(results_file: Path, row: dict):
 def main():
     parser = argparse.ArgumentParser(description="Run and archive one editable VQE iteration.")
     parser.add_argument("--molecule", required=True, choices=["N2", "N2_60", "BH", "LiH", "BeH2", "H2O"])
-    parser.add_argument("--script", required=True, help="Path to the molecule-specific initial_script.py file.")
+    parser.add_argument("--script", required=True, help="Path to the molecule-specific simple_vqe.py file.")
     parser.add_argument("--wall-seconds", type=float, default=20.0)
     parser.add_argument("--iteration", type=int)
     parser.add_argument("--description", default="", help="Short note describing the code mutation.")

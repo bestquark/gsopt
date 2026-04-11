@@ -135,7 +135,7 @@ def snapshot_source_file(root: Path) -> Path:
                     return candidate
         except json.JSONDecodeError:
             pass
-    for name in ("initial_script.py", "simple_tn.py"):
+    for name in ("initial_script.py",):
         candidate = root / name
         if candidate.exists():
             return candidate

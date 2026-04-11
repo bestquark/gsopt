@@ -19,7 +19,7 @@ same.
 Do not run offline energy probes, parameter sweeps, direct `cudaq.observe`
 studies, or any other non-queued experiments to guide the search. Outside the
 queued scorer, only trivial syntax/import/runtime sanity checks are allowed.
-If the target `initial_script.py` file is missing or clearly corrupted, stop and
+If the target `simple_vqe.py` file is missing or clearly corrupted, stop and
 report it. Do not reconstruct source from `__pycache__`, bytecode, decompilers,
 or other reverse-engineering steps.
 The untouched CUDA-Q baseline must be archived first as iteration `0`, then the

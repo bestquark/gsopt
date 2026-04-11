@@ -77,7 +77,7 @@ class ExampleSpec:
 VQE_LANE = LaneSpec(
     lane="vqe",
     benchmark_arg="molecule",
-    source_filename="initial_script.py",
+    source_filename="simple_vqe.py",
     queue_script="examples/vqe/queued_track_iteration.py",
     restore_script="examples/vqe/restore_best_iteration.py",
     plot_script="figs/vqe/make_energy_figure.py",
@@ -144,7 +144,7 @@ DMRG_LANE = LaneSpec(
     optuna_root_env=None,
     default_iterations=100,
     default_wall_seconds=20.0,
-    objective_metric="final_energy",
+    objective_metric="excess_energy",
     objective_text="Lower the final excess energy after exactly 20 seconds without changing the Hamiltonian or chain size.",
 )
 
@@ -176,12 +176,12 @@ def _load_vqe_examples(repo_root: Path) -> list[ExampleSpec]:
                 example_key=key,
                 benchmark_value=molecule,
                 display_name=f"{molecule} VQE",
-                source_template=f"examples/vqe/{key}/initial_script.py",
+                source_template=f"examples/vqe/{key}/simple_vqe.py",
                 support_files=(),
             )
         )
     vqe_dir = repo_root / "examples" / "vqe"
-    for candidate in sorted(vqe_dir.glob("*/initial_script.py")):
+    for candidate in sorted(vqe_dir.glob("*/simple_vqe.py")):
         key = candidate.parent.name
         if key in seen:
             continue
@@ -191,7 +191,7 @@ def _load_vqe_examples(repo_root: Path) -> list[ExampleSpec]:
                 example_key=key,
                 benchmark_value=key.upper().replace("_PLUS", "+"),
                 display_name=f"{key.upper()} VQE",
-                source_template=f"examples/vqe/{key}/initial_script.py",
+                source_template=f"examples/vqe/{key}/simple_vqe.py",
                 support_files=(),
             )
         )

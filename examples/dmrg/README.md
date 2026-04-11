@@ -1,15 +1,17 @@
 # DMRG
 
-Status: retained in the repo, but not recently tested after the single-tree `gsopt` reorganization.
-
 Active code:
 
-- `simple_dmrg.py`: generic hard-model definitions and DMRG method
 - `heisenberg_xxx_384/simple_dmrg.py`
 - `xxz_gapless_256/simple_dmrg.py`
 - `tfim_longitudinal_256/simple_dmrg.py`
 - `spin1_heisenberg_64/simple_dmrg.py`
 - `spin1_single_ion_critical_64/simple_dmrg.py`
+- `heisenberg_xxx_384/evaluate.py`
+- `xxz_gapless_256/evaluate.py`
+- `tfim_longitudinal_256/evaluate.py`
+- `spin1_heisenberg_64/evaluate.py`
+- `spin1_single_ion_critical_64/evaluate.py`
 - `track_iteration.py`
 - `queued_track_iteration.py`
 - `figs/dmrg/make_energy_figure.py`

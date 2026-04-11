@@ -5,13 +5,13 @@ Before doing anything, make sure your current working directory is
 session in that `vqe/` directory.
 
 Edit only:
-- `h2o/initial_script.py`
+- `h2o/simple_vqe.py`
 
 Fixed evaluation command:
-`uv run python queued_track_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/h2o/initial_script.py --molecule H2O --wall-seconds 20 --max-parallel 1 --description "<one-line mutation summary>"`
+`uv run python queued_track_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/h2o/simple_vqe.py --molecule H2O --wall-seconds 20 --max-parallel 1 --description "<one-line mutation summary>"`
 
 Restore-best command:
-`uv run python restore_best_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/h2o/initial_script.py --molecule H2O`
+`uv run python restore_best_iteration.py --script /Users/lmantilla/Desktop/Internship/autoresearch/examples/vqe/h2o/simple_vqe.py --molecule H2O`
 
 Goal:
 - lower the final `final_error` after exactly 20 seconds
@@ -25,9 +25,9 @@ Rules:
 5. After each evaluation, if the status is `discard` or `crash`, run the restore-best command before the next mutation.
 6. Inspect the previous scored result before launching the next scored iteration. Do not launch batches of future iterations or pre-script multiple queued runs ahead of time.
 7. Do not write or leave behind detached/background controller scripts that keep submitting future iterations after the interactive turn ends.
-8. Do not run direct `initial_script.py` smoke tests for this loop.
+8. Do not run direct `simple_vqe.py` smoke tests for this loop.
 9. Do not run direct energy probes, parameter sweeps, `cudaq.observe` studies, or any other non-queued experiments to guide the search. Outside the queued scorer, only trivial syntax/import/runtime sanity checks are allowed.
-10. If the target `initial_script.py` file is missing or clearly corrupted, stop and report it. Do not reconstruct source from `__pycache__`, bytecode, decompilers, or other reverse-engineering steps.
+10. If the target `simple_vqe.py` file is missing or clearly corrupted, stop and report it. Do not reconstruct source from `__pycache__`, bytecode, decompilers, or other reverse-engineering steps.
 11. Do not use any `--wall-seconds` other than `20`.
 12. Do not change the molecule, CAS, or geometry.
 13. Do not turn the file into a hidden recipe bank, grid search, or menu of many internal methods. One outer iteration should test one explicit method.

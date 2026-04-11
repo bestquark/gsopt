@@ -211,7 +211,7 @@ def run_tracked_iteration(
 
 def main():
     parser = argparse.ArgumentParser(description="Queue-limited wrapper around track_iteration.py.")
-    parser.add_argument("--script", required=True, help="Path to the molecule-specific initial_script.py file.")
+    parser.add_argument("--script", required=True, help="Path to the molecule-specific simple_vqe.py file.")
     parser.add_argument("--molecule", required=True, choices=["N2", "N2_60", "BH", "LiH", "BeH2", "H2O"])
     parser.add_argument("--wall-seconds", type=float, default=20.0)
     parser.add_argument("--iteration", type=int)

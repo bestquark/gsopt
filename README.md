@@ -1,6 +1,6 @@
 # gsopt
 
-Shared benchmark repo for fixed-budget energy minimization experiments, Optuna baselines, and agent-driven mutation runs.
+Shared benchmark repo for fixed-budget energy minimization experiments, internal baselines, and agent-driven mutation runs.
 
 ## Install the `gsopt` Skill
 
@@ -29,10 +29,13 @@ npx skills add . --skill gsopt
 
 - `examples/`: canonical benchmark tree
 - `figs/`: plotting scripts and generated figures
-- `benchkit/`: internal runtime behind `uv run gsopt`
-- `skills/`: canonical skill bundle for `npx skills add`
+- `skills/`: canonical skill bundle and generic runtime
+- `benchkit/`: compatibility shims plus internal baseline helpers
 
-`gsopt` is the public skill and CLI name. `benchkit/` is just the internal package that scaffolds runs, wraps evaluators, and tracks progress.
+`gsopt` is the public skill and CLI name. The generic watchdog, scaffolding,
+logging, and mutation-loop runtime now live under `skills/gsopt/scripts/`.
+`benchkit/` remains only as a thin compatibility layer for older repo imports
+and shared internal baseline helper modules.
 
 The paper sources live separately in `bestquark/quantum_autoresearch`.
 
@@ -50,19 +53,71 @@ This installs the Python 3.12 environment plus the CUDA-Q CPU backend used by th
 
 ## Quick Start
 
+## Using `/gsopt` In Codex Or Claude Code
+
+The simplest way to use the skill is to open Codex or Claude Code in the
+benchmark directory itself, then invoke `/gsopt` with the iteration budget and a
+short goal.
+
+Generic toy example for a small H2 VQE folder:
+
+```text
+h2_vqe/
+├── initial_program.py
+└── evaluator.py
+```
+
+From inside that folder, run:
+
+```text
+/gsopt 50 . --source initial_program.py --evaluator evaluator.py Minimize the H2 VQE energy in 50 scored mutations. Be creative about ansatz structure, initialization, and staged optimizers, but keep the evaluation budget fixed.
+```
+
+That tells the agent to:
+
+- scaffold a `run_<timestamp>/` directory
+- archive the untouched baseline as iteration `0`
+- perform `50` scored mutation iterations
+- log every iteration, keep the best state, and use the bundled watchdog flow
+
+Repo-native example with an existing benchmark:
+
+```bash
+cd examples/vqe/bh
+```
+
+Then in Codex or Claude Code:
+
+```text
+/gsopt 50 . Lower the BH VQE final energy as much as possible under the fixed wall-time budget. Prefer structural improvements over seed churn.
+```
+
+After the run is scaffolded, the run directory contains the local wrappers the
+agent will use:
+
+```bash
+python3 run_eval.py -- uv run python evaluate.py --description "archive baseline parameters and starting ansatz"
+python3 watchdog.py
+python3 campaign.py --agent codex --search
+uv run python status.py
+uv run python plot.py
+```
+
 Smallest direct targets:
 
 ```bash
-uv run python examples/vqe/bh/initial_script.py --wall-seconds 10
+uv run python examples/vqe/bh/simple_vqe.py --wall-seconds 10
 uv run python examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --wall-seconds 10
 uv run python examples/gibbs/simple_gibbs_mcmc.py
 ```
 
-Each active VQE, TN, and AFQMC benchmark directory now exposes the same local interface:
+Each active benchmark directory now exposes the same local pattern:
 
-- `initial_script.py`: the benchmark file the agent mutates
+- one editable method file such as `simple_vqe.py`, `initial_script.py`, or `simple_dmrg.py`
 - `evaluate.py`: benchmark-local entrypoint into the shared tracked evaluator
-- `optuna_baseline.py`: benchmark-local entrypoint into the shared Optuna runner
+
+Internal baselines remain separate from the GSOpt skill and are
+not part of the mutation-loop interface.
 
 Canonical mutation workflow from inside a benchmark directory:
 
@@ -84,16 +139,33 @@ That creates `examples/<lane>/<benchmark>/run_<timestamp>/` with:
 - `evaluate.py`, `restore_best.py`, `plot.py`, and `status.py`
 - local `snapshots/`, `logs/`, and `figs/`
 - `plan.md`, `agent_prompt.md`, `run.json`, and `status.json`
+- local `run_eval.py`, `watchdog.py`, and `campaign.py` wrappers that keep working even when the repo-level `gsopt` console entrypoint is unavailable
 
 Inside a run directory:
 
 ```bash
-uv run gsopt run-eval -- uv run python evaluate.py --description "archive untouched baseline"
+python3 run_eval.py -- uv run python evaluate.py --description "archive untouched baseline source"
 uv run python status.py
 uv run python restore_best.py
 uv run python plot.py
-uv run gsopt watchdog .
+python3 watchdog.py
+python3 campaign.py --agent codex --search
+python3 campaign.py --agent claude
 ```
+
+For external non-repo benchmarks, the same workflow works on any directory with
+an editable method file plus an evaluator file such as `evaluate.py`,
+`evaluator.py`, or `eval.py` that prints JSON containing at least a scalar
+`score`. If GSOpt cannot infer either file, rerun with `--source <path>` and/or
+`--evaluator <path>`.
+
+Internal baseline runs remain separate repo utilities. When you want that
+comparison, use the lane-root baseline scripts directly.
+
+`campaign.py` is the strict persistence layer: it repeatedly relaunches Codex or
+Claude, checks the logged iteration count after each launch, and keeps waking
+the agent until the requested mutation budget is actually completed or repeated
+launches make no progress.
 
 Use `--evaluation-mode serialized` for one-at-a-time scoring, or `--evaluation-mode parallel --max-parallel N` when the benchmark should allow bounded concurrency.
 
@@ -110,13 +182,13 @@ Retained but not recently tested:
 - `examples/dmrg/`
 - `examples/gibbs/`
 
-The main agent-editable targets are the per-benchmark `initial_script.py` files such as:
+The main agent-editable targets are the per-benchmark method files such as:
 
-- `examples/vqe/bh/initial_script.py`
-- `examples/vqe/lih/initial_script.py`
-- `examples/vqe/beh2/initial_script.py`
-- `examples/vqe/h2o/initial_script.py`
-- `examples/vqe/n2/initial_script.py`
+- `examples/vqe/bh/simple_vqe.py`
+- `examples/vqe/lih/simple_vqe.py`
+- `examples/vqe/beh2/simple_vqe.py`
+- `examples/vqe/h2o/simple_vqe.py`
+- `examples/vqe/n2/simple_vqe.py`
 - `examples/tn/heisenberg_xxx_384/initial_script.py`
 - `examples/afqmc/h2/initial_script.py`
 
@@ -142,5 +214,5 @@ Generated figures land in the matching root directories:
 
 - Each tracked evaluation is fixed-budget and intended to be compared on equal wall time.
 - Run-local mutation history lives under `examples/<lane>/<benchmark>/run_<timestamp>/snapshots/`.
-- Optuna benchmark-local archives live under `examples/<lane>/<benchmark>/optuna_run_<timestamp>/`.
-- Shared lane-level archives such as `examples/vqe/snapshots/` remain the source for the paper figures and historical comparisons.
+- Internal baseline archives live under per-benchmark archive directories created by the separate baseline runner.
+- Historical snapshot archives are expected outside the tracked repo tree. Point plotting scripts at archived roots with the `AUTORESEARCH_*_SNAPSHOT_ROOT` environment variables when needed.

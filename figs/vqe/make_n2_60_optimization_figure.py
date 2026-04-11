@@ -91,7 +91,7 @@ def snapshot_script(iteration: int) -> Path:
                     return path
         except json.JSONDecodeError:
             pass
-    for name in ("initial_script.py", "simple_vqe.py"):
+    for name in ("simple_vqe.py",):
         path = root / name
         if path.exists():
             return path

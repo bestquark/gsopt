@@ -40,7 +40,7 @@ MAX_STEPS_CHOICES = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
 
 
 def default_script_for(molecule: str) -> Path:
-    return SCRIPT_DIR / molecule.lower().replace("+", "_plus") / "initial_script.py"
+    return SCRIPT_DIR / molecule.lower().replace("+", "_plus") / "simple_vqe.py"
 
 
 def append_summary(path: Path, row: dict):
@@ -487,7 +487,7 @@ def write_best_result(path: Path, study: optuna.Study):
 
 def main():
     parser = argparse.ArgumentParser(description="Run the Optuna VQE baseline on a frozen molecule-specific script.")
-    parser.add_argument("--script", help="Path to the molecule-specific initial_script.py file.")
+    parser.add_argument("--script", help="Path to the molecule-specific simple_vqe.py file.")
     parser.add_argument("--molecule", required=True, choices=["BH", "LiH", "BeH2", "H2O", "N2"])
     parser.add_argument("--archive-root", help="Optional directory to store this Optuna run.")
     parser.add_argument("--wall-seconds", type=float, default=20.0)

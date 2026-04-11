@@ -56,7 +56,7 @@ def snapshot_file(molecule: str, iteration: int) -> Path:
 def main():
     parser = argparse.ArgumentParser(description="Restore the best archived VQE iteration back into the live script.")
     parser.add_argument("--molecule", required=True, choices=["N2", "N2_60", "BH", "LiH", "BeH2", "H2O"])
-    parser.add_argument("--script", required=True, help="Path to the molecule-specific initial_script.py file.")
+    parser.add_argument("--script", required=True, help="Path to the molecule-specific simple_vqe.py file.")
     args = parser.parse_args()
 
     iteration = best_kept_iteration(args.molecule)

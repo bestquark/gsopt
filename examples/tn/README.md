@@ -1,6 +1,6 @@
 # Tensor-Network Ground-State Benchmark
 
-This benchmark is the broader classical counterpart to the VQE suite. Each model directory exposes an editable `initial_script.py` plus local `evaluate.py` and `optuna_baseline.py` wrappers.
+This benchmark is the broader classical counterpart to the VQE suite. Each model directory exposes an editable `initial_script.py` plus a local `evaluate.py` wrapper.
 
 Current allowed method families:
 
@@ -24,9 +24,9 @@ Each lane follows the same outer-loop protocol as the other benchmarks:
 - use only the queued scorer
 - restore the best snapshot after any discard or crash
 
-Important directories:
+Generated directories:
 
-- `snapshots/`: archived iterations
+- `snapshots/`: archived iterations when using the lane-level tracker
 - `eval_queue/`: shared TN scorer queue
 - `instructions/`: one prompt per lane
 - `reference_energies.json`: frozen offline references once computed
@@ -35,11 +35,10 @@ Current figure script:
 
 - `uv run python figs/tn/make_energy_figure.py`
 
-Benchmark-local Optuna baseline example:
+Shared Optuna baseline example:
 
 ```bash
-cd examples/tn/heisenberg_xxx_384
-uv run python optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/tn/optuna_baseline.py --script examples/tn/heisenberg_xxx_384/initial_script.py --model heisenberg_xxx_384 --wall-seconds 20 --trials 100
 ```
 
 That creates `examples/tn/<model>/optuna_run_<timestamp>/`.

@@ -187,7 +187,7 @@ def snapshot_file(stem: str, iteration: int) -> Path:
                 candidate = root / str(archived_name)
                 if candidate.exists():
                     return candidate
-    for name in ("initial_script.py", "simple_vqe.py"):
+    for name in ("simple_vqe.py",):
         candidate = root / name
         if candidate.exists():
             return candidate

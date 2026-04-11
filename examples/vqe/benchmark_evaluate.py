@@ -13,7 +13,10 @@ def main(*, default_source: str = "simple_vqe.py") -> int:
     args = parser.parse_args()
 
     source_file = resolve_source_file(Path(__file__).resolve(), default_source)
-    result = run_source_script(source_file, args.wall_seconds)
+    try:
+        result = run_source_script(source_file, args.wall_seconds)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
     final_error = float(result["final_error"])
     result.setdefault("metric", "abs_final_error")
     result["score"] = float(result.get("abs_final_error", abs(final_error)))

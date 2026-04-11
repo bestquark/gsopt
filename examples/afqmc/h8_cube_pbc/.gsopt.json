@@ -1,17 +1,17 @@
 {
   "version": 1,
   "lane": "afqmc",
-  "example_key": "h4_square_pbc",
+  "example_key": "h8_cube_pbc",
   "benchmark_arg": "system",
-  "benchmark_value": "h4_square_pbc",
-  "display_name": "h4_square_pbc Periodic",
+  "benchmark_value": "h8_cube_pbc",
+  "display_name": "h8_cube_pbc Periodic",
   "source_file": "initial_script.py",
   "evaluator_file": "evaluate.py",
-  "source_template": "examples/afqmc/h4_square_pbc/initial_script.py",
+  "source_template": "examples/afqmc/h8_cube_pbc/initial_script.py",
   "queue_script": null,
   "restore_script": null,
   "plot_script": "figs/afqmc/make_energy_figure.py",
-  "optuna_script": "examples/afqmc/h4_square_pbc/optuna_baseline.py",
+  "optuna_script": "examples/afqmc/h8_cube_pbc/optuna_baseline.py",
   "snapshot_env": "AUTORESEARCH_AFQMC_SNAPSHOT_ROOT",
   "fig_dir_env": "AUTORESEARCH_AFQMC_FIG_DIR",
   "run_root_env": null,
@@ -24,5 +24,5 @@
     "examples/afqmc/model_registry.py",
     "examples/afqmc/reference_energies.py"
   ],
-  "benchmark_storage_name": "h4_square_pbc"
+  "benchmark_storage_name": "h8_cube_pbc"
 }

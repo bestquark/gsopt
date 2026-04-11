@@ -1,10 +1,11 @@
 # AFQMC
 
-The AFQMC lane uses compact periodic-electronic PySCF-PBC benchmarks.
+The AFQMC lane uses compact periodic-electronic PySCF-PBC benchmarks with
+frozen periodic MP2 reference energies.
 
 Active benchmark directories:
 
-- `h4_square_pbc/`
+- `h8_cube_pbc/`
 - `h10_chain_pbc/`
 - `lih_cubic_pbc/`
 - `diamond_prim/`
@@ -34,20 +35,20 @@ uv run python examples/afqmc/compute_reference_energies.py
 Smoke test:
 
 ```bash
-uv run python examples/afqmc/h4_square_pbc/initial_script.py --wall-seconds 5
+uv run python examples/afqmc/h8_cube_pbc/initial_script.py --wall-seconds 5
 ```
 
 GSOpt workflow:
 
 ```bash
-cd examples/afqmc/h4_square_pbc
+cd examples/afqmc/h8_cube_pbc
 uv run gsopt 100 . "Lower the 20-second absolute energy error."
 ```
 
 Benchmark-local Optuna baseline:
 
 ```bash
-uv run python examples/afqmc/h4_square_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
 ```
 
 Figure:

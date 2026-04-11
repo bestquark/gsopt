@@ -7,6 +7,10 @@ description: Run a `/loop`-style fixed-budget code-mutation campaign for ground-
 
 Use this skill when the goal is not a one-off code edit but a full mutation loop with a fixed evaluation budget, sequential scored iterations, explicit scorer policy, and complete run logs.
 
+Invocation note:
+- In Codex CLI/IDE, skills are invoked with `$gsopt` or through `/skills`, not as a custom `/gsopt` slash command.
+- Claude Code may expose the installed skill as `/gsopt`.
+
 Use the generic runtime bundled under `scripts/` for any benchmark directory
 that exposes:
 

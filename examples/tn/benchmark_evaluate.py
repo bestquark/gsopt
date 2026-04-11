@@ -13,7 +13,10 @@ def main(*, default_source: str = "initial_script.py") -> int:
     args = parser.parse_args()
 
     source_file = resolve_source_file(Path(__file__).resolve(), default_source)
-    result = run_source_script(source_file, args.wall_seconds)
+    try:
+        result = run_source_script(source_file, args.wall_seconds)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
     result.setdefault("metric", "final_energy")
     result["score"] = float(result["final_energy"])
     result.setdefault("lower_is_better", True)

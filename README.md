@@ -94,7 +94,7 @@ Representative editable targets:
 - `examples/dmrg/tfim_longitudinal_256/simple_dmrg.py`
 - `examples/dmrg/spin1_heisenberg_64/simple_dmrg.py`
 - `examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py`
-- `examples/afqmc/h4_square_pbc/initial_script.py`
+- `examples/afqmc/h8_cube_pbc/initial_script.py`
 - `examples/afqmc/h10_chain_pbc/initial_script.py`
 - `examples/afqmc/lih_cubic_pbc/initial_script.py`
 - `examples/afqmc/diamond_prim/initial_script.py`
@@ -107,7 +107,7 @@ Optuna is separate from the GSOpt skill. Use the benchmark-local wrappers direct
 uv run python examples/vqe/bh/optuna_baseline.py --wall-seconds 20 --trials 100
 uv run python examples/tn/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
 uv run python examples/dmrg/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
-uv run python examples/afqmc/h4_square_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
 ```
 
 These create per-benchmark `optuna_run_<timestamp>/` archives.

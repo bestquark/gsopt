@@ -1,4 +1,4 @@
 interface:
   display_name: "GSOpt"
   short_description: "Run fixed-budget code-mutation loops"
-  default_prompt: "Use $gsopt to run an n-iteration code-mutation loop against an editable benchmark file and a fixed evaluator such as evaluate.py or evaluator.py."
+  default_prompt: "Use $gsopt <n_iterations> [benchmark_dir_or_file] <description> to run a fixed-budget code-mutation loop against one editable benchmark file and one fixed evaluator such as evaluate.py or evaluator.py."

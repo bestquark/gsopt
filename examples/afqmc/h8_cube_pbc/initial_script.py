@@ -10,14 +10,14 @@ if str(AFQMC_ROOT) not in sys.path:
 
 from periodic_benchmark import RunConfig, run_cli
 
-SYSTEM_NAME = "h4_square_pbc"
+SYSTEM_NAME = "h8_cube_pbc"
 
 DEFAULT_CONFIG = RunConfig(
-    name="periodic_h4_square",
-    trial="uhf",
+    name="periodic_h8_cube",
+    trial="rhf",
     cell_precision=1e-6,
     conv_tol=1e-5,
-    max_cycle=20,
+    max_cycle=16,
     diis_space=6,
     level_shift=0.10,
     damping=0.20,

@@ -46,14 +46,18 @@ def run_source_script(source_file: Path, wall_seconds: float) -> dict:
     repo_root = locate_repo_root(source_file)
     env = os.environ.copy()
     env.update(THREAD_BUDGET_ENV)
-    proc = subprocess.run(
-        [sys.executable, str(source_file), "--wall-seconds", str(wall_seconds)],
-        cwd=repo_root,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(source_file), "--wall-seconds", str(wall_seconds)],
+            cwd=repo_root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=max(float(wall_seconds), 0.0) + 1.0,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"evaluation exceeded the {wall_seconds:.1f}s wall-time budget") from exc
     stdout = proc.stdout.strip()
     stderr = proc.stderr.strip()
     if proc.returncode != 0:

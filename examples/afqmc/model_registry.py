@@ -17,11 +17,14 @@ class PeriodicSystemSpec:
 
 
 SYSTEM_SPECS = {
-    "h4_square_pbc": PeriodicSystemSpec(
-        name="h4_square_pbc",
-        label="H4 square supercell",
-        atom="H 0 0 0; H 0 0 1.4; H 0 1.4 0; H 0 1.4 1.4",
-        lattice_vectors=((10.0, 0.0, 0.0), (0.0, 10.0, 0.0), (0.0, 0.0, 10.0)),
+    "h8_cube_pbc": PeriodicSystemSpec(
+        name="h8_cube_pbc",
+        label="H8 cube supercell",
+        atom=(
+            "H 0 0 0; H 0 0 1.4; H 0 1.4 0; H 0 1.4 1.4; "
+            "H 1.4 0 0; H 1.4 0 1.4; H 1.4 1.4 0; H 1.4 1.4 1.4"
+        ),
+        lattice_vectors=((12.0, 0.0, 0.0), (0.0, 12.0, 0.0), (0.0, 0.0, 12.0)),
     ),
     "h10_chain_pbc": PeriodicSystemSpec(
         name="h10_chain_pbc",

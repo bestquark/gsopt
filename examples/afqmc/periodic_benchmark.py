@@ -14,7 +14,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from pyscf.pbc import gto, scf
+from pyscf.pbc import gto, mp, scf
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 EXAMPLES_ROOT = SCRIPT_DIR.parent
@@ -155,39 +155,39 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
 
 def compute_reference_record(system_name: str) -> dict:
     spec = SYSTEM_SPECS[system_name]
-    candidates = []
-    for trial in ("rhf", "uhf"):
-        cfg = RunConfig(
-            name=f"reference_{trial}",
-            trial=trial,
-            cell_precision=REFERENCE_CONFIG.cell_precision,
-            conv_tol=REFERENCE_CONFIG.conv_tol,
-            max_cycle=REFERENCE_CONFIG.max_cycle,
-            diis_space=REFERENCE_CONFIG.diis_space,
-            level_shift=REFERENCE_CONFIG.level_shift,
-            damping=REFERENCE_CONFIG.damping,
-            init_guess=REFERENCE_CONFIG.init_guess,
-        )
-        start = time.perf_counter()
-        cell = build_cell(spec, cfg)
-        solver = build_solver(cell, cfg)
-        dm0 = solver.get_init_guess(key=cfg.init_guess)
-        energy = float(solver.kernel(dm0=dm0))
-        candidates.append(
-            {
-                "trial": trial,
-                "reference_energy": energy,
-                "converged": bool(getattr(solver, "converged", False)),
-                "wall_seconds": time.perf_counter() - start,
-                "basis": spec.basis,
-                "pseudo": spec.pseudo,
-                "nao": int(cell.nao_nr()),
-                "nelectron": int(cell.nelectron),
-            }
-        )
-    best = min(candidates, key=lambda row: row["reference_energy"])
-    best["label"] = spec.label
-    return best
+    start = time.perf_counter()
+    cfg = RunConfig(
+        name="reference_rhf_mp2",
+        trial="rhf",
+        cell_precision=REFERENCE_CONFIG.cell_precision,
+        conv_tol=REFERENCE_CONFIG.conv_tol,
+        max_cycle=REFERENCE_CONFIG.max_cycle,
+        diis_space=REFERENCE_CONFIG.diis_space,
+        level_shift=REFERENCE_CONFIG.level_shift,
+        damping=REFERENCE_CONFIG.damping,
+        init_guess=REFERENCE_CONFIG.init_guess,
+    )
+    cell = build_cell(spec, cfg)
+    solver = build_solver(cell, cfg)
+    dm0 = solver.get_init_guess(key=cfg.init_guess)
+    hf_energy = float(solver.kernel(dm0=dm0))
+    mp2_solver = mp.MP2(solver)
+    corr_energy, _ = mp2_solver.kernel()
+    reference_total = hf_energy + float(corr_energy)
+    return {
+        "trial": cfg.trial,
+        "reference_method": "MP2",
+        "scf_energy": hf_energy,
+        "correlation_energy": float(corr_energy),
+        "reference_energy": reference_total,
+        "converged": bool(getattr(solver, "converged", False)),
+        "wall_seconds": time.perf_counter() - start,
+        "basis": spec.basis,
+        "pseudo": spec.pseudo,
+        "nao": int(cell.nao_nr()),
+        "nelectron": int(cell.nelectron),
+        "label": spec.label,
+    }
 
 
 def run_cli(system_name: str, default_config: RunConfig) -> int:

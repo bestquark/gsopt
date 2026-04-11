@@ -10,16 +10,25 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 import warnings
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import numpy as np
 import qutip
 import quimb.tensor as qtn
 
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
+from config_override import load_dataclass_override
+
 np.seterr(all="ignore")
 warnings.filterwarnings("ignore", category=UserWarning)
+CONFIG_OVERRIDE_ENV = "AUTORESEARCH_DMRG_CONFIG_JSON"
 
 
 @dataclass(frozen=True)
@@ -131,6 +140,10 @@ def config_from_dict(data: dict) -> RunConfig:
     payload["product_even_state"] = tuple(payload["product_even_state"])
     payload["product_odd_state"] = tuple(payload["product_odd_state"])
     return RunConfig(**payload)
+
+
+def runtime_config() -> RunConfig:
+    return load_dataclass_override(CONFIG_OVERRIDE_ENV, DEFAULT_CONFIG, RunConfig)
 
 
 def config_signature(cfg: RunConfig) -> tuple:
@@ -284,7 +297,7 @@ def main():
     args = parser.parse_args()
 
     problem = build_problem(MODEL_NAME)
-    result = run_config(DEFAULT_CONFIG, problem, wall_time_limit=args.wall_seconds)
+    result = run_config(runtime_config(), problem, wall_time_limit=args.wall_seconds)
     summary = {
         "task": "simple_dmrg_ground_state",
         "model": MODEL_NAME,

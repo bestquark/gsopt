@@ -14,7 +14,7 @@ if str(ROOT) not in sys.path:
 
 from plot_style import apply_style, finish_axes
 
-from examples.afqmc.model_registry import ACTIVE_MOLECULES, PRETTY_LABELS
+from examples.afqmc.model_registry import ACTIVE_SYSTEMS, PRETTY_LABELS
 
 LANE_DIR = ROOT / "examples" / "afqmc"
 SNAPSHOT_ROOT = Path(os.environ.get("AUTORESEARCH_AFQMC_SNAPSHOT_ROOT", LANE_DIR / "snapshots"))
@@ -45,8 +45,8 @@ def configure_style():
     )
 
 
-def load_snapshot_records(molecule: str) -> list[dict]:
-    root = SNAPSHOT_ROOT / molecule.lower().replace("+", "_plus")
+def load_snapshot_records(system: str) -> list[dict]:
+    root = SNAPSHOT_ROOT / system
     if not root.exists():
         return []
     rows = []
@@ -65,8 +65,8 @@ def load_snapshot_records(molecule: str) -> list[dict]:
     return rows
 
 
-def load_optuna_records(molecule: str) -> list[dict]:
-    root = locate_optuna_root(molecule)
+def load_optuna_records(system: str) -> list[dict]:
+    root = locate_optuna_root(system)
     if root is None:
         return []
     rows = []
@@ -85,8 +85,8 @@ def load_optuna_records(molecule: str) -> list[dict]:
     return rows
 
 
-def locate_optuna_root(molecule: str) -> Path | None:
-    stem = molecule.lower().replace("+", "_plus")
+def locate_optuna_root(system: str) -> Path | None:
+    stem = system
     candidates: list[Path] = []
     benchmark_dir = LANE_DIR / stem
     if OPTUNA_ROOT.name.startswith("optuna_run_"):
@@ -109,8 +109,8 @@ def plot_combined(ax):
     min_iteration = 0
     handles: list[Line2D] = []
 
-    for idx, molecule in enumerate(ACTIVE_MOLECULES):
-        records = load_snapshot_records(molecule)
+    for idx, system in enumerate(ACTIVE_SYSTEMS):
+        records = load_snapshot_records(system)
         if not records:
             continue
         color = cmap(idx % 10)
@@ -126,7 +126,7 @@ def plot_combined(ax):
         max_iteration = max(max_iteration, max(xs))
         ax.scatter(xs, ys, s=34, color=color, alpha=0.22, zorder=1)
         ax.step(xs, running, where="post", color=color, linewidth=3.4, zorder=2)
-        handles.append(Line2D([0], [0], color=color, linewidth=3.4, label=PRETTY_LABELS[molecule]))
+        handles.append(Line2D([0], [0], color=color, linewidth=3.4, label=PRETTY_LABELS[system]))
 
     if not all_errors:
         ax.text(0.5, 0.5, "no run data", transform=ax.transAxes, ha="center", va="center")
@@ -143,7 +143,7 @@ def plot_combined(ax):
 
 
 def has_optuna_data() -> bool:
-    return any(load_optuna_records(molecule) for molecule in ACTIVE_MOLECULES)
+    return any(load_optuna_records(system) for system in ACTIVE_SYSTEMS)
 
 
 def plot_comparison(ax):
@@ -151,11 +151,11 @@ def plot_comparison(ax):
     all_errors: list[float] = []
     max_iteration = 1
     min_iteration = 0
-    molecule_handles: list[Line2D] = []
+    system_handles: list[Line2D] = []
 
-    for idx, molecule in enumerate(ACTIVE_MOLECULES):
-        autoresearch_records = load_snapshot_records(molecule)
-        optuna_records = load_optuna_records(molecule)
+    for idx, system in enumerate(ACTIVE_SYSTEMS):
+        autoresearch_records = load_snapshot_records(system)
+        optuna_records = load_optuna_records(system)
         if not autoresearch_records and not optuna_records:
             continue
         color = cmap(idx % 10)
@@ -188,7 +188,7 @@ def plot_comparison(ax):
             ax.scatter(xs, ys, s=32, marker="x", color=color, alpha=0.34, zorder=3)
             ax.step(xs, running, where="post", color=color, linewidth=2.6, linestyle="--", zorder=4)
 
-        molecule_handles.append(Line2D([0], [0], color=color, linewidth=3.0, label=PRETTY_LABELS[molecule]))
+        system_handles.append(Line2D([0], [0], color=color, linewidth=3.0, label=PRETTY_LABELS[system]))
 
     if not all_errors:
         ax.text(0.5, 0.5, "no run data", transform=ax.transAxes, ha="center", va="center")
@@ -205,7 +205,7 @@ def plot_comparison(ax):
         Line2D([0], [0], color="#222222", linestyle="--", linewidth=2.2, label="Chemical Accuracy"),
     ]
     legend = ax.legend(
-        handles=molecule_handles + style_handles,
+        handles=system_handles + style_handles,
         loc="upper right",
         frameon=True,
         facecolor="white",

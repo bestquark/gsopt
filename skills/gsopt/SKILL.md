@@ -12,7 +12,7 @@ that exposes:
 
 - one editable method file, usually `initial_script.py`, `initial_program.py`, or `simple_dmrg.py`
 - one evaluator file, usually `evaluate.py`, `evaluator.py`, or `eval.py`, that prints JSON containing `score` or the manifest objective metric
-- an optional `.gsopt.json` manifest when lane-specific queue / restore / plot scripts exist
+- an optional `.gsopt.json` manifest when lane-specific plot or metadata settings exist
 
 Treat the `examples/` tree in this repo as worked benchmark demonstrations of
 the same pattern.
@@ -36,7 +36,7 @@ Examples:
 
 ```bash
 uv run gsopt 100 examples/vqe/bh "Bias toward structural ansatz improvements, not seed churn."
-uv run gsopt init-run 100 examples/tn/tfim_2d_4x4 --evaluation-mode parallel --max-parallel 2 "Allow two concurrent queued evaluations across independent runs."
+uv run gsopt init-run 100 examples/tn/tfim_2d_4x4 --evaluation-mode parallel --max-parallel 2 "Allow two concurrent evaluations across independent runs."
 uv run gsopt 100 . "Be aggressive about better initialization and staged schedules."
 uv run gsopt 50 . --source initial_program.py --evaluator evaluator.py "Lower the ground-state energy without changing the evaluator contract."
 ```
@@ -56,7 +56,7 @@ After scaffolding, work inside the new run directory.
 1. Read `README.md`, `plan.md`, and `agent_prompt.md`.
 2. Archive the untouched baseline first as iteration `0`.
 3. Then do exactly the requested number of mutated outer iterations.
-4. One outer iteration = inspect the previous result, make one explicit code mutation, and run one queued scored evaluation.
+4. One outer iteration = inspect the previous result, make one explicit code mutation, and run one scored evaluation.
 5. Read the returned JSON before choosing the next mutation.
 6. If the last scored result is `discard` or `crash`, restore the best kept iteration before continuing.
 7. Keep the live file in the best valid state before you stop.
@@ -79,8 +79,8 @@ a time, with full archival history.
 
 The run metadata records whether scoring is:
 
-- `serialized`: one queued evaluation at a time
-- `parallel`: allow up to `max_parallel` queued evaluations
+- `serialized`: one scored evaluation at a time
+- `parallel`: allow up to `max_parallel` concurrent evaluations when the benchmark/runtime supports it
 
 Even in `parallel` mode, do not blindly batch future mutations from one trajectory. Read the previous scored result before choosing the next change.
 
@@ -133,7 +133,7 @@ hit its target iteration count.
 - Be really creative about lowering the scored objective, usually by improving ground-state energy or its error under a fixed wall-clock budget.
 - Prefer coherent ideas that plausibly help the fixed-budget score: better parameterizations, better initial states, staged optimizers, continuation schedules, symmetry tying, dimensionality reduction, or cleaner ansatz structure.
 - Once tiny tolerance or seed tweaks plateau, stop burning iterations on them alone.
-- Do not batch future evaluations, write menu-search code, or run offline probes outside the queued scorer.
+- Do not batch future evaluations, write menu-search code, or run offline probes outside the scorer.
 - Keep the benchmark family intact. Improve the method inside the benchmark; do not replace it with a different solver stack or rewrite the evaluator to make the score easier.
 
 ## Idea research mode

@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -16,8 +15,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from benchkit.optuna_utils import (
-    THREAD_BUDGET_ENV,
-    acquire_slot,
     load_python_module,
     prepare_frozen_source,
     resolve_repo_path,
@@ -25,13 +22,13 @@ from benchkit.optuna_utils import (
     study_root,
     write_json,
 )
+from benchkit.trial_eval import run_trial_source
 from model_registry import ACTIVE_MODELS
 from reference_energies import reference_energy
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
-QUEUE_ROOT = SCRIPT_DIR / "eval_queue"
-TRACKED_SNAPSHOT_ROOT = SCRIPT_DIR / "optuna_tracked_snapshots"
+CONFIG_OVERRIDE_ENV = "AUTORESEARCH_TN_CONFIG_JSON"
 SUMMARY_HEADER = (
     "trial\tstatus\tobjective\tfinal_energy\treference_energy\texcess_energy\tenergy_per_site\t"
     "excess_energy_per_site\twall_seconds\tqueue_wait_seconds\ttrial_dir\n"
@@ -162,7 +159,6 @@ def main():
 
     source_file = resolve_repo_path(REPO_ROOT, args.script) if args.script else default_script_for(args.model)
     root = resolve_repo_path(REPO_ROOT, args.archive_root) if args.archive_root else study_root(SCRIPT_DIR, args.model)
-    tracked_snapshot_root = root / "tracked_snapshots"
     if args.reset and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -194,7 +190,6 @@ def main():
             "startup_trials": args.startup_trials,
             "max_parallel": args.max_parallel,
             "reference_energy": ref_energy,
-            "tracked_snapshot_root": str(tracked_snapshot_root),
         },
     )
 
@@ -214,136 +209,78 @@ def main():
         write_json(trial_dir / "config.json", config)
 
         description = f"Optuna TN trial {trial.number}"
-        slot_dir = None
-        request_dir = None
         queue_wait_seconds = 0.0
-        queue_rank = None
-        queue_slot = None
-        try:
-            queue_slot, slot_dir, request_dir, queue_wait_seconds, queue_rank = acquire_slot(
-                queue_root=QUEUE_ROOT,
-                max_parallel=args.max_parallel,
-                poll_seconds=args.poll_seconds,
-                label_key="model",
-                label_value=args.model,
-                source_script=str(frozen_source),
-                description=description,
-                requested_index=trial.number,
-            )
-            env = os.environ.copy()
-            env.update(THREAD_BUDGET_ENV)
-            env["AUTORESEARCH_TN_SNAPSHOT_ROOT"] = str(tracked_snapshot_root)
-            proc = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT_DIR / "track_iteration.py"),
-                    "--script",
-                    str(frozen_source),
-                    "--model",
-                    args.model,
-                    "--wall-seconds",
-                    str(args.wall_seconds),
-                    "--iteration",
-                    str(trial.number),
-                    "--description",
-                    description,
-                ],
-                cwd=REPO_ROOT,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            stdout = proc.stdout.strip()
-            stderr = proc.stderr.strip()
-            status = "keep"
-            error_text = None
-            result = None
-            if proc.returncode != 0:
-                status = "crash"
-                error_text = stderr or stdout or "trial evaluation failed"
-            else:
-                try:
-                    result = json.loads(stdout)
-                except json.JSONDecodeError as exc:
-                    status = "crash"
-                    error_text = f"evaluation stdout was not valid JSON: {exc}"
+        result, stdout, stderr, error_text = run_trial_source(
+            source_file=frozen_source,
+            repo_root=REPO_ROOT,
+            wall_seconds=args.wall_seconds,
+            extra_env={CONFIG_OVERRIDE_ENV: json.dumps(config)},
+        )
 
-            write_json(
-                trial_dir / "metadata.json",
-                {
-                    "trial": trial.number,
-                    "model": args.model,
-                    "status": status,
-                    "queue_slot": queue_slot,
-                    "queue_rank_at_start": queue_rank,
-                    "queue_wait_seconds": queue_wait_seconds,
-                    "request_id": request_dir.name if request_dir is not None else None,
-                    "description": description,
-                },
-            )
-            if stdout:
-                (trial_dir / "stdout.txt").write_text(stdout + "\n")
-            if stderr:
-                (trial_dir / "stderr.txt").write_text(stderr + "\n")
-            if error_text is not None:
-                (trial_dir / "error.txt").write_text(error_text + "\n")
+        status = "keep" if result is not None else "crash"
+        write_json(
+            trial_dir / "metadata.json",
+            {
+                "trial": trial.number,
+                "model": args.model,
+                "status": status,
+                "queue_wait_seconds": queue_wait_seconds,
+                "description": description,
+            },
+        )
+        if stdout:
+            (trial_dir / "stdout.txt").write_text(stdout + "\n")
+        if stderr:
+            (trial_dir / "stderr.txt").write_text(stderr + "\n")
+        if error_text is not None:
+            (trial_dir / "error.txt").write_text(error_text + "\n")
 
-            if result is None:
-                append_summary(
-                    root / "summary.tsv",
-                    {
-                        "trial": trial.number,
-                        "status": status,
-                        "objective": CRASH_PENALTY,
-                        "final_energy": CRASH_PENALTY,
-                        "reference_energy": ref_energy,
-                        "excess_energy": None if ref_energy is None else CRASH_PENALTY,
-                        "energy_per_site": CRASH_PENALTY,
-                        "excess_energy_per_site": None if ref_energy is None else CRASH_PENALTY,
-                        "wall_seconds": args.wall_seconds,
-                        "queue_wait_seconds": queue_wait_seconds,
-                        "trial_dir": str(trial_dir),
-                    },
-                )
-                trial.set_user_attr("status", status)
-                trial.set_user_attr("trial_dir", str(trial_dir))
-                return CRASH_PENALTY
-
-            tracked_snapshot_dir = Path(result["snapshot_dir"])
-            tracked_result_path = tracked_snapshot_dir / "result.json"
-            tracked_payload = json.loads(tracked_result_path.read_text()) if tracked_result_path.exists() else result
-            write_json(trial_dir / "tracker_result.json", result)
-            write_json(trial_dir / "result.json", tracked_payload)
-            nsites = int(tracked_payload["nsites"])
-            excess_energy = None if ref_energy is None else float(result["final_energy"]) - ref_energy
-            energy_per_site = float(tracked_payload["energy_per_site"])
-            excess_energy_per_site = None if excess_energy is None else excess_energy / nsites
+        if result is None:
             append_summary(
                 root / "summary.tsv",
                 {
                     "trial": trial.number,
-                    "status": result["status"],
-                    "objective": float(result["final_energy"]),
-                    "final_energy": float(result["final_energy"]),
+                    "status": status,
+                    "objective": CRASH_PENALTY,
+                    "final_energy": CRASH_PENALTY,
                     "reference_energy": ref_energy,
-                    "excess_energy": excess_energy,
-                    "energy_per_site": energy_per_site,
-                    "excess_energy_per_site": excess_energy_per_site,
-                    "wall_seconds": float(result["wall_seconds"]),
+                    "excess_energy": None if ref_energy is None else CRASH_PENALTY,
+                    "energy_per_site": CRASH_PENALTY,
+                    "excess_energy_per_site": None if ref_energy is None else CRASH_PENALTY,
+                    "wall_seconds": args.wall_seconds,
                     "queue_wait_seconds": queue_wait_seconds,
                     "trial_dir": str(trial_dir),
                 },
             )
-            trial.set_user_attr("status", result["status"])
+            trial.set_user_attr("status", status)
             trial.set_user_attr("trial_dir", str(trial_dir))
-            trial.set_user_attr("tracked_snapshot_dir", result.get("snapshot_dir"))
-            return float(result["final_energy"])
-        finally:
-            if slot_dir is not None and slot_dir.exists():
-                shutil.rmtree(slot_dir, ignore_errors=True)
-            if request_dir is not None and request_dir.exists():
-                shutil.rmtree(request_dir, ignore_errors=True)
+            return CRASH_PENALTY
+
+        write_json(trial_dir / "result.json", result)
+        nsites = int(result["nsites"])
+        final_energy = float(result["final_energy"])
+        energy_per_site = float(result["energy_per_site"])
+        excess_energy = None if ref_energy is None else final_energy - ref_energy
+        excess_energy_per_site = None if excess_energy is None else excess_energy / nsites
+        append_summary(
+            root / "summary.tsv",
+            {
+                "trial": trial.number,
+                "status": result.get("status", "keep"),
+                "objective": final_energy,
+                "final_energy": final_energy,
+                "reference_energy": ref_energy,
+                "excess_energy": excess_energy,
+                "energy_per_site": energy_per_site,
+                "excess_energy_per_site": excess_energy_per_site,
+                "wall_seconds": float(result["wall_seconds"]),
+                "queue_wait_seconds": queue_wait_seconds,
+                "trial_dir": str(trial_dir),
+            },
+        )
+        trial.set_user_attr("status", result.get("status", "keep"))
+        trial.set_user_attr("trial_dir", str(trial_dir))
+        return final_energy
 
     remaining_trials = max(0, args.trials - len(study.trials))
     if remaining_trials > 0:

@@ -1,50 +1,50 @@
-# Tensor-Network Ground-State Benchmark
+# TN
 
-This benchmark is the broader classical counterpart to the VQE suite. Each model directory exposes an editable `initial_script.py` plus a local `evaluate.py` wrapper.
+Active benchmark directories:
 
-Current allowed method families:
+- `heisenberg_xxx_384/`
+- `xxz_gapless_256/`
+- `spin1_heisenberg_64/`
+- `tfim_2d_4x4/`
+- `heisenberg_2d_4x4/`
 
-- `dmrg1`
-- `dmrg2`
-- `tebd1d`
-- `tebd2d`
+Each benchmark directory contains:
 
-Current active models:
+- `initial_script.py`: editable method file
+- `evaluate.py`: fixed scorer entrypoint
+- `optuna_baseline.py`: separate internal baseline wrapper
+- `.gsopt.json`: benchmark metadata for the GSOpt runtime
 
-- `heisenberg_xxx_384`
-- `xxz_gapless_256`
-- `spin1_heisenberg_64`
-- `tfim_2d_4x4`
-- `heisenberg_2d_4x4`
+Lane-level shared files kept here:
 
-Each lane follows the same outer-loop protocol as the other benchmarks:
+- `model_registry.py`
+- `reference_energies.py`
+- `reference_energies.json`
+- `compute_reference_energies.py`
+- `benchmark_evaluate.py`
+- `simple_tn.py`
 
-- archive the untouched baseline as iteration `0`
-- then run `100` mutated outer iterations
-- use only the queued scorer
-- restore the best snapshot after any discard or crash
-
-Generated directories:
-
-- `snapshots/`: archived iterations when using the lane-level tracker
-- `eval_queue/`: shared TN scorer queue
-- `instructions/`: one prompt per lane
-- `reference_energies.json`: frozen offline references once computed
-
-Current figure script:
-
-- `uv run python figs/tn/make_energy_figure.py`
-
-Shared Optuna baseline example:
+Smoke test:
 
 ```bash
-uv run python examples/tn/optuna_baseline.py --script examples/tn/heisenberg_xxx_384/initial_script.py --model heisenberg_xxx_384 --wall-seconds 20 --trials 100
+uv run python examples/tn/heisenberg_xxx_384/initial_script.py --wall-seconds 5
 ```
 
-That creates `examples/tn/<model>/optuna_run_<timestamp>/`.
+GSOpt workflow:
 
-If benchmark-local `optuna_run_<timestamp>/trial_####/result.json` archives exist, `make_energy_figure.py` also emits `figs/tn/tn_energy_overview_with_optuna.{pdf,png}`.
+```bash
+cd examples/tn/heisenberg_xxx_384
+uv run gsopt 100 . "Lower the 20-second final energy."
+```
 
-Current queue viewer:
+Benchmark-local Optuna baseline:
 
-- `uv run python benchkit/show_queues.py --follow --lane tn`
+```bash
+uv run python examples/tn/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
+```
+
+Figure:
+
+```bash
+uv run python figs/tn/make_energy_figure.py
+```

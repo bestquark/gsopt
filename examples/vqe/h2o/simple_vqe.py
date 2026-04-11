@@ -7,8 +7,10 @@ from __future__ import annotations
 import argparse
 import itertools
 import json
+import sys
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import cudaq
 import numpy as np
@@ -17,9 +19,16 @@ from openfermion import MolecularData, get_fermion_operator, get_sparse_operator
 from openfermionpyscf import run_pyscf
 from scipy.optimize import minimize
 
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
+from config_override import load_dataclass_override
+
 cudaq.set_target("qpp-cpu")
 
 CHEMICAL_ACCURACY = 1e-3
+CONFIG_OVERRIDE_ENV = "AUTORESEARCH_VQE_CONFIG_JSON"
 
 
 @dataclass(frozen=True)
@@ -172,6 +181,10 @@ class WallTimeReached(RuntimeError):
 
 def config_to_dict(cfg: RunConfig) -> dict:
     return asdict(cfg)
+
+
+def runtime_config() -> RunConfig:
+    return load_dataclass_override(CONFIG_OVERRIDE_ENV, DEFAULT_CONFIG, RunConfig)
 
 
 def choose_active_space(molecule: MolecularData, spec: MoleculeSpec) -> tuple[list[int], list[int]]:
@@ -545,7 +558,7 @@ def main():
     args = parser.parse_args()
 
     problem = build_problem(MOLECULE_NAME)
-    result = run_config(DEFAULT_CONFIG, problem, chemical_accuracy=CHEMICAL_ACCURACY, wall_time_limit=args.wall_seconds)
+    result = run_config(runtime_config(), problem, chemical_accuracy=CHEMICAL_ACCURACY, wall_time_limit=args.wall_seconds)
     summary = {
         "task": "simple_cudaq_vqe",
         "molecule": MOLECULE_NAME,

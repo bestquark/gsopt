@@ -1,41 +1,49 @@
 # DMRG
 
-Active code:
+Active benchmark directories:
 
-- `heisenberg_xxx_384/simple_dmrg.py`
-- `xxz_gapless_256/simple_dmrg.py`
-- `tfim_longitudinal_256/simple_dmrg.py`
-- `spin1_heisenberg_64/simple_dmrg.py`
-- `spin1_single_ion_critical_64/simple_dmrg.py`
-- `heisenberg_xxx_384/evaluate.py`
-- `xxz_gapless_256/evaluate.py`
-- `tfim_longitudinal_256/evaluate.py`
-- `spin1_heisenberg_64/evaluate.py`
-- `spin1_single_ion_critical_64/evaluate.py`
-- `track_iteration.py`
-- `queued_track_iteration.py`
-- `figs/dmrg/make_energy_figure.py`
+- `heisenberg_xxx_384/`
+- `xxz_gapless_256/`
+- `tfim_longitudinal_256/`
+- `spin1_heisenberg_64/`
+- `spin1_single_ion_critical_64/`
 
-Simple target:
+Each benchmark directory contains:
+
+- `simple_dmrg.py`: editable method file
+- `evaluate.py`: fixed scorer entrypoint
+- `optuna_baseline.py`: separate internal baseline wrapper
+- `.gsopt.json`: benchmark metadata for the GSOpt runtime
+
+Lane-level shared files kept here:
+
+- `model_registry.py`
+- `reference_energies.py`
+- `reference_energies.json`
+- `compute_reference_energies.py`
+- `benchmark_evaluate.py`
+
+Smoke test:
 
 ```bash
-uv run python examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --wall-seconds 10
+uv run python examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --wall-seconds 5
 ```
 
-Full external-agent evaluation commands:
+GSOpt workflow:
 
 ```bash
-uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --model heisenberg_xxx_384 --wall-seconds 20 --max-parallel 1
-uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/xxz_gapless_256/simple_dmrg.py --model xxz_gapless_256 --wall-seconds 20 --max-parallel 1
-uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/tfim_longitudinal_256/simple_dmrg.py --model tfim_longitudinal_256 --wall-seconds 20 --max-parallel 1
-uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/spin1_heisenberg_64/simple_dmrg.py --model spin1_heisenberg_64 --wall-seconds 20 --max-parallel 1
-uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py --model spin1_single_ion_critical_64 --wall-seconds 20 --max-parallel 1
+cd examples/dmrg/heisenberg_xxx_384
+uv run gsopt 100 . "Lower the 20-second excess energy."
 ```
 
-Benchmark set:
+Benchmark-local Optuna baseline:
 
-- `heisenberg_xxx_384`
-- `xxz_gapless_256`
-- `tfim_longitudinal_256`
-- `spin1_heisenberg_64`
-- `spin1_single_ion_critical_64`
+```bash
+uv run python examples/dmrg/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
+```
+
+Figure:
+
+```bash
+uv run python figs/dmrg/make_energy_figure.py
+```

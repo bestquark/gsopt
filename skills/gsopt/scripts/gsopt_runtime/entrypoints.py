@@ -10,7 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from .common import iso_now, read_json, write_json
+from .common import iso_now, read_json
+from .local_eval import evaluate_local_context
 from .runtime import RunContext, collect_status, locate_context
 
 
@@ -34,108 +35,13 @@ def _subprocess_json(cmd: list[str], env: dict[str, str], cwd: Path) -> dict:
         raise RuntimeError(f"command stdout was not valid JSON: {exc}") from exc
 
 
-def _next_iteration(context: RunContext) -> int:
-    status = collect_status(context, write=False)
-    latest = status.get("latest_iteration")
-    if latest is None:
-        return 0
-    return int(latest) + 1
-
-
-def _snapshot_current_source(context: RunContext, iteration: int, description: str, result: dict[str, Any]) -> Path:
-    snapshot_dir = context.local_snapshots_dir / f"iter_{iteration:04d}"
-    snapshot_dir.mkdir(parents=True, exist_ok=True)
-    source_snapshot = snapshot_dir / context.source_path.name
-    shutil.copy2(context.source_path, source_snapshot)
-    write_json(snapshot_dir / "result.json", result)
-    write_json(
-        snapshot_dir / "metadata.json",
-        {
-            "timestamp": iso_now(),
-            "iteration": iteration,
-            "description": description,
-            "source_file": context.source_path.name,
-        },
-    )
-    return source_snapshot
-
-
-def _update_best(context: RunContext, iteration: int, result: dict[str, Any], source_snapshot: Path):
-    score = float(result["score"])
-    lower_is_better = bool(result.get("lower_is_better", True))
-    payload = {
-        "timestamp": iso_now(),
-        "iteration": iteration,
-        "score": score,
-        "lower_is_better": lower_is_better,
-        "source_snapshot": str(source_snapshot),
-        "result_path": str(source_snapshot.parent / "result.json"),
-    }
-    if not context.best_path.exists():
-        write_json(context.best_path, payload)
-        return
-    best = read_json(context.best_path)
-    best_score = float(best["score"])
-    best_lower = bool(best.get("lower_is_better", lower_is_better))
-    is_better = score < best_score if best_lower else score > best_score
-    if is_better:
-        write_json(context.best_path, payload)
-
-
-def _normalize_result(context: RunContext, result: dict[str, Any]) -> dict[str, Any]:
-    normalized = dict(result)
-    if "score" not in normalized:
-        metric_key = str(context.manifest.get("objective_metric", "score"))
-        if metric_key in normalized:
-            normalized["score"] = normalized[metric_key]
-    if "score" not in normalized:
-        raise RuntimeError("the evaluator must return JSON containing `score` or the manifest objective metric")
-    normalized.setdefault("status", "keep")
-    normalized.setdefault("lower_is_better", True)
-    return normalized
-
-
-def _evaluate_run_local(context: RunContext, description: str, iteration: int | None, extra_args: list[str]) -> int:
-    user_eval = context.root_dir / "_user_evaluate.py"
-    if not user_eval.exists():
-        raise RuntimeError(f"missing copied evaluator {user_eval}")
-    actual_iteration = _next_iteration(context) if iteration is None else iteration
-    env = os.environ.copy()
-    env["GSOPT_RUN_DIR"] = str(context.root_dir)
-    env["GSOPT_ITERATION"] = str(actual_iteration)
-    cmd = [sys.executable, str(user_eval), *extra_args]
-    event = {
-        "timestamp": iso_now(),
-        "type": "evaluation",
-        "iteration": actual_iteration,
-        "description": description,
-        "command": cmd,
-    }
-    try:
-        result = _subprocess_json(cmd, env=env, cwd=context.root_dir)
-        result = _normalize_result(context, result)
-        source_snapshot = _snapshot_current_source(context, actual_iteration, description, result)
-        _update_best(context, actual_iteration, result, source_snapshot)
-        event["result"] = result
-        _append_jsonl(context.evaluations_log, event)
-        collect_status(context, write=True)
-        print(json.dumps(result, indent=2))
-        return 0
-    except Exception as exc:
-        event["error"] = str(exc)
-        _append_jsonl(context.evaluations_log, event)
-        collect_status(context, write=True)
-        print(str(exc), file=sys.stderr)
-        return 1
-
-
 def evaluate_main() -> int:
     context = _context_from_argv0()
     default_max_parallel = 1
     if context.run_meta is not None:
         default_max_parallel = int(context.run_meta.get("max_parallel", 1))
     parser = argparse.ArgumentParser(
-        description="Run one queued tracked evaluation inside a GSOpt benchmark or run directory."
+        description="Run one tracked scored evaluation inside a GSOpt benchmark or run directory."
     )
     parser.add_argument("--description", default="", help="Short mutation summary.")
     parser.add_argument("--wall-seconds", type=float, default=float(context.manifest.get("default_wall_seconds", 20.0)))
@@ -143,13 +49,11 @@ def evaluate_main() -> int:
     parser.add_argument("--max-parallel", type=int, default=default_max_parallel)
     args, remainder = parser.parse_known_args()
 
-    if context.is_run and not context.manifest.get("queue_script") and (context.root_dir / "_user_evaluate.py").exists():
-        return _evaluate_run_local(context, args.description, args.iteration, remainder)
+    if not context.manifest.get("queue_script"):
+        return evaluate_local_context(context, args.description, args.iteration, remainder)
 
     manifest = context.manifest
     queue_script = manifest.get("queue_script")
-    if not queue_script:
-        raise RuntimeError("benchmark manifest does not define a queue_script; scaffold a run directory first")
     env = os.environ.copy()
     snapshot_env = manifest.get("snapshot_env")
     if snapshot_env:
@@ -195,7 +99,7 @@ def evaluate_main() -> int:
 
 def restore_main() -> int:
     context = _context_from_argv0()
-    if context.is_run and not context.manifest.get("restore_script") and context.best_path.exists():
+    if not context.manifest.get("restore_script") and context.best_path.exists():
         best = read_json(context.best_path)
         snapshot = Path(best["source_snapshot"])
         if not snapshot.exists():
@@ -298,7 +202,7 @@ def _plot_local_run(context: RunContext) -> int:
 
 def plot_main() -> int:
     context = _context_from_argv0()
-    if context.is_run and not context.manifest.get("plot_script") and context.evaluations_log.exists():
+    if not context.manifest.get("plot_script") and context.evaluations_log.exists():
         return _plot_local_run(context)
 
     manifest = context.manifest
@@ -345,7 +249,7 @@ def benchmark_optuna_main() -> int:
         raise SystemExit(f"lane {manifest['lane']!r} does not expose an Optuna baseline")
 
     parser = argparse.ArgumentParser(
-        description="Launch the shared Optuna baseline from a benchmark directory into a timestamped local archive."
+        description="Launch the benchmark-local Optuna baseline into a timestamped local archive."
     )
     parser.add_argument(
         "--archive-root",

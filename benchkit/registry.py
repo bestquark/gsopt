@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from examples.afqmc.model_registry import ACTIVE_MOLECULES as ACTIVE_AFQMC_MOLECULES
+from examples.afqmc.model_registry import ACTIVE_SYSTEMS as ACTIVE_AFQMC_SYSTEMS
 from examples.dmrg.model_registry import ACTIVE_MODELS as ACTIVE_DMRG_MODELS
 from examples.tn.model_registry import ACTIVE_MODELS as ACTIVE_TN_MODELS
 
@@ -16,10 +15,9 @@ class LaneSpec:
     lane: str
     benchmark_arg: str
     source_filename: str
-    queue_script: str
-    restore_script: str
+    queue_script: str | None
+    restore_script: str | None
     plot_script: str
-    optuna_script: str | None
     snapshot_env: str
     fig_dir_env: str
     run_root_env: str | None
@@ -49,11 +47,12 @@ class ExampleSpec:
             "benchmark_value": self.benchmark_value,
             "display_name": self.display_name,
             "source_file": self.lane.source_filename,
+            "evaluator_file": "evaluate.py",
             "source_template": self.source_template,
             "queue_script": self.lane.queue_script,
             "restore_script": self.lane.restore_script,
             "plot_script": self.lane.plot_script,
-            "optuna_script": self.lane.optuna_script,
+            "optuna_script": self.optuna_script,
             "snapshot_env": self.lane.snapshot_env,
             "fig_dir_env": self.lane.fig_dir_env,
             "run_root_env": self.lane.run_root_env,
@@ -73,15 +72,18 @@ class ExampleSpec:
             return benchmark_slug(self.benchmark_value)
         return self.benchmark_value
 
+    @property
+    def optuna_script(self) -> str:
+        return str(Path(self.source_template).with_name("optuna_baseline.py"))
+
 
 VQE_LANE = LaneSpec(
     lane="vqe",
     benchmark_arg="molecule",
     source_filename="simple_vqe.py",
-    queue_script="examples/vqe/queued_track_iteration.py",
-    restore_script="examples/vqe/restore_best_iteration.py",
+    queue_script=None,
+    restore_script=None,
     plot_script="figs/vqe/make_energy_figure.py",
-    optuna_script="examples/vqe/optuna_baseline.py",
     snapshot_env="AUTORESEARCH_VQE_SNAPSHOT_ROOT",
     fig_dir_env="AUTORESEARCH_VQE_FIG_DIR",
     run_root_env="AUTORESEARCH_VQE_RUN_ROOT",
@@ -96,10 +98,9 @@ TN_LANE = LaneSpec(
     lane="tn",
     benchmark_arg="model",
     source_filename="initial_script.py",
-    queue_script="examples/tn/queued_track_iteration.py",
-    restore_script="examples/tn/restore_best_iteration.py",
+    queue_script=None,
+    restore_script=None,
     plot_script="figs/tn/make_energy_figure.py",
-    optuna_script="examples/tn/optuna_baseline.py",
     snapshot_env="AUTORESEARCH_TN_SNAPSHOT_ROOT",
     fig_dir_env="AUTORESEARCH_TN_FIG_DIR",
     run_root_env="AUTORESEARCH_TN_RUN_ROOT",
@@ -113,12 +114,11 @@ TN_LANE = LaneSpec(
 
 AFQMC_LANE = LaneSpec(
     lane="afqmc",
-    benchmark_arg="molecule",
+    benchmark_arg="system",
     source_filename="initial_script.py",
-    queue_script="examples/afqmc/queued_track_iteration.py",
-    restore_script="examples/afqmc/restore_best_iteration.py",
+    queue_script=None,
+    restore_script=None,
     plot_script="figs/afqmc/make_energy_figure.py",
-    optuna_script="examples/afqmc/optuna_baseline.py",
     snapshot_env="AUTORESEARCH_AFQMC_SNAPSHOT_ROOT",
     fig_dir_env="AUTORESEARCH_AFQMC_FIG_DIR",
     run_root_env=None,
@@ -126,7 +126,7 @@ AFQMC_LANE = LaneSpec(
     default_iterations=100,
     default_wall_seconds=20.0,
     objective_metric="abs_final_error",
-    objective_text="Lower the final absolute energy error after exactly 20 seconds without changing the molecule geometry or basis.",
+    objective_text="Lower the final absolute periodic-cell energy error after exactly 20 seconds without changing the system geometry or basis.",
     support_files=("examples/afqmc/model_registry.py", "examples/afqmc/reference_energies.py"),
 )
 
@@ -134,10 +134,9 @@ DMRG_LANE = LaneSpec(
     lane="dmrg",
     benchmark_arg="model",
     source_filename="simple_dmrg.py",
-    queue_script="examples/dmrg/queued_track_iteration.py",
-    restore_script="examples/dmrg/restore_best_iteration.py",
+    queue_script=None,
+    restore_script=None,
     plot_script="figs/dmrg/make_energy_figure.py",
-    optuna_script=None,
     snapshot_env="AUTORESEARCH_DMRG_SNAPSHOT_ROOT",
     fig_dir_env="AUTORESEARCH_DMRG_FIG_DIR",
     run_root_env="AUTORESEARCH_DMRG_RUN_ROOT",
@@ -160,42 +159,17 @@ LANE_SPECS = {
 
 
 def _load_vqe_examples(repo_root: Path) -> list[ExampleSpec]:
-    config_dir = repo_root / "examples" / "vqe" / "configs"
-    examples: list[ExampleSpec] = []
-    seen: set[str] = set()
-    for config_path in sorted(config_dir.glob("*.json")):
-        if config_path.stem == "smoke":
-            continue
-        payload = json.loads(config_path.read_text())
-        key = config_path.stem
-        seen.add(key)
-        molecule = payload["molecule"]
-        examples.append(
-            ExampleSpec(
-                lane=VQE_LANE,
-                example_key=key,
-                benchmark_value=molecule,
-                display_name=f"{molecule} VQE",
-                source_template=f"examples/vqe/{key}/simple_vqe.py",
-                support_files=(),
-            )
+    return [
+        ExampleSpec(
+            lane=VQE_LANE,
+            example_key=candidate.parent.name,
+            benchmark_value=candidate.parent.name.upper().replace("_PLUS", "+"),
+            display_name=f"{candidate.parent.name.upper()} VQE",
+            source_template=str(candidate.relative_to(repo_root)),
+            support_files=(),
         )
-    vqe_dir = repo_root / "examples" / "vqe"
-    for candidate in sorted(vqe_dir.glob("*/simple_vqe.py")):
-        key = candidate.parent.name
-        if key in seen:
-            continue
-        examples.append(
-            ExampleSpec(
-                lane=VQE_LANE,
-                example_key=key,
-                benchmark_value=key.upper().replace("_PLUS", "+"),
-                display_name=f"{key.upper()} VQE",
-                source_template=f"examples/vqe/{key}/simple_vqe.py",
-                support_files=(),
-            )
-        )
-    return examples
+        for candidate in sorted((repo_root / "examples" / "vqe").glob("*/simple_vqe.py"))
+    ]
 
 
 def _load_tn_examples() -> list[ExampleSpec]:
@@ -213,19 +187,17 @@ def _load_tn_examples() -> list[ExampleSpec]:
 
 
 def _load_afqmc_examples() -> list[ExampleSpec]:
-    examples: list[ExampleSpec] = []
-    for molecule in ACTIVE_AFQMC_MOLECULES:
-        examples.append(
-            ExampleSpec(
-                lane=AFQMC_LANE,
-                example_key=benchmark_slug(molecule),
-                benchmark_value=molecule,
-                display_name=f"{molecule} AFQMC",
-                source_template=f"examples/afqmc/{benchmark_slug(molecule)}/initial_script.py",
-                support_files=AFQMC_LANE.support_files,
-            )
+    return [
+        ExampleSpec(
+            lane=AFQMC_LANE,
+            example_key=system,
+            benchmark_value=system,
+            display_name=f"{system} Periodic",
+            source_template=f"examples/afqmc/{system}/initial_script.py",
+            support_files=AFQMC_LANE.support_files,
         )
-    return examples
+        for system in ACTIVE_AFQMC_SYSTEMS
+    ]
 
 
 def _load_dmrg_examples() -> list[ExampleSpec]:

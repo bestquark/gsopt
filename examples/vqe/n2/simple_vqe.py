@@ -7,8 +7,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 
 import cudaq
 import numpy as np
@@ -16,6 +18,12 @@ from cudaq import spin
 from openfermion import MolecularData, get_fermion_operator, get_sparse_operator, jordan_wigner
 from openfermionpyscf import run_pyscf
 from scipy.optimize import minimize
+
+EXAMPLES_ROOT = Path(__file__).resolve().parents[1]
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
+
+from config_override import load_dataclass_override
 
 cudaq.set_target("qpp-cpu")
 
@@ -154,10 +162,7 @@ def config_from_dict(data: dict) -> RunConfig:
 
 
 def runtime_config() -> RunConfig:
-    raw = os.environ.get(CONFIG_OVERRIDE_ENV)
-    if not raw:
-        return DEFAULT_CONFIG
-    return config_from_dict(json.loads(raw))
+    return load_dataclass_override(CONFIG_OVERRIDE_ENV, DEFAULT_CONFIG, RunConfig)
 
 
 def config_signature(cfg: RunConfig) -> tuple:

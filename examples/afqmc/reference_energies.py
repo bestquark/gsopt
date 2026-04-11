@@ -16,9 +16,9 @@ def load_reference_data() -> dict:
     return json.loads(text)
 
 
-def reference_energy(molecule: str) -> float | None:
+def reference_energy(system: str) -> float | None:
     payload = load_reference_data()
-    record = payload.get(molecule)
+    record = payload.get(system)
     if record is None:
         return None
     return float(record["reference_energy"])

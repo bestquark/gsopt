@@ -24,11 +24,16 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 TN_ROOT = SCRIPT_DIR if (SCRIPT_DIR / "model_registry.py").exists() else SCRIPT_DIR.parent
 if str(TN_ROOT) not in sys.path:
     sys.path.insert(0, str(TN_ROOT))
+EXAMPLES_ROOT = TN_ROOT.parent
+if str(EXAMPLES_ROOT) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES_ROOT))
 
+from config_override import load_dataclass_override
 from model_registry import MODEL_SPECS
 
 np.seterr(all="ignore")
 warnings.filterwarnings("ignore", category=UserWarning)
+CONFIG_OVERRIDE_ENV = "AUTORESEARCH_TN_CONFIG_JSON"
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,10 @@ def config_to_dict(cfg: RunConfig) -> dict:
     payload = asdict(cfg)
     payload["bond_schedule"] = list(cfg.bond_schedule)
     return payload
+
+
+def runtime_config() -> RunConfig:
+    return load_dataclass_override(CONFIG_OVERRIDE_ENV, DEFAULT_CONFIG, RunConfig)
 
 
 def build_uniform_1d_hamiltonians(spec) -> tuple[qtn.MatrixProductOperator, qtn.LocalHam1D]:
@@ -418,7 +427,7 @@ def main():
     args = parser.parse_args()
 
     problem = build_problem(MODEL_NAME)
-    result = run_config(DEFAULT_CONFIG, problem, wall_time_limit=args.wall_seconds)
+    result = run_config(runtime_config(), problem, wall_time_limit=args.wall_seconds)
     summary = {
         "task": "simple_tn_ground_state",
         "model": MODEL_NAME,

@@ -43,5 +43,49 @@
     "spin": 0,
     "wall_seconds": 0.02225170802557841,
     "hf_energy": -98.57077998601423
+  },
+  "h4_square_pbc": {
+    "trial": "uhf",
+    "reference_energy": -1.5342164612963969,
+    "converged": true,
+    "wall_seconds": 2.5770067089470103,
+    "basis": "gth-szv",
+    "pseudo": "gth-pade",
+    "nao": 4,
+    "nelectron": 4,
+    "label": "H4 square supercell"
+  },
+  "h10_chain_pbc": {
+    "trial": "rhf",
+    "reference_energy": -4.940763335063277,
+    "converged": true,
+    "wall_seconds": 22.721225082990713,
+    "basis": "gth-szv",
+    "pseudo": "gth-pade",
+    "nao": 10,
+    "nelectron": 10,
+    "label": "H10 chain supercell"
+  },
+  "lih_cubic_pbc": {
+    "trial": "rhf",
+    "reference_energy": -8.07449130476998,
+    "converged": true,
+    "wall_seconds": 10.90983979194425,
+    "basis": "gth-szv",
+    "pseudo": "gth-pade",
+    "nao": 3,
+    "nelectron": 4,
+    "label": "LiH cubic supercell"
+  },
+  "diamond_prim": {
+    "trial": "rhf",
+    "reference_energy": -0.6015421599655895,
+    "converged": true,
+    "wall_seconds": 3.1478197920368984,
+    "basis": "gth-szv",
+    "pseudo": "gth-pade",
+    "nao": 8,
+    "nelectron": 8,
+    "label": "Diamond primitive cell"
   }
 }

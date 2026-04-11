@@ -60,6 +60,45 @@ if __name__ == "__main__":
     raise SystemExit({entrypoint}())
 """
 
+BENCHMARK_EVALUATOR_TEMPLATE = """from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+
+def _locate_repo_root(start: Path) -> Path:
+    env_benchmark = os.environ.get("GSOPT_BENCHMARK_ROOT")
+    candidates = []
+    if env_benchmark:
+        benchmark_root = Path(env_benchmark).resolve()
+        candidates.extend([benchmark_root, *benchmark_root.parents])
+    current = start.resolve()
+    if current.is_file():
+        current = current.parent
+    candidates.extend([current, *current.parents])
+    seen = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if (candidate / "pyproject.toml").exists() and (candidate / "examples").exists():
+            return candidate
+    raise RuntimeError(f"could not locate repo root from {{start}}")
+
+
+REPO_ROOT = _locate_repo_root(Path(__file__).resolve())
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+os.environ["GSOPT_BENCHMARK_ROOT"] = str(Path(__file__).resolve().parent)
+
+from {module_path} import main as benchmark_evaluate_main
+
+
+if __name__ == "__main__":
+    raise SystemExit(benchmark_evaluate_main(default_source="{source_file}"))
+"""
+
 CLI_WRAPPER_TEMPLATE = """from __future__ import annotations
 
 import json
@@ -260,13 +299,13 @@ python3 campaign.py --agent codex --search
 - Treat the copied evaluator and GSOpt wrappers as fixed scoring infrastructure. Mutate `{source_file}`, not the evaluator.
 - Archive the untouched baseline as iteration `0`.
 - Then run exactly iterations `1` through `{run_meta["target_iterations"]}`.
-- One outer iteration = one explicit code mutation plus one queued scored run.
+- One outer iteration = one explicit code mutation plus one scored run.
 - Every scored run must include a short technical `--description` that explicitly names the code mutation(s).
 - Optimize the evaluator's returned objective metric, which may be final energy, energy error, or another lower-is-better score.
 - Read the last scored result before choosing the next mutation.
 - If a scored run is `discard` or `crash`, restore the best kept iteration before continuing.
 - Be really creative about reducing the scored objective: once tiny tolerance or seed tweaks plateau, prefer structural changes that alter the search geometry or ansatz quality.
-- Do not pre-script batches of future iterations, seed sweeps, or offline probes outside the queued evaluator.
+- Do not pre-script batches of future iterations, seed sweeps, or offline probes outside the scored evaluator.
 """
 
 
@@ -277,9 +316,9 @@ def _agent_prompt(manifest: dict, run_meta: dict) -> str:
     evaluation_mode = run_meta["evaluation_mode"]
     max_parallel = run_meta["max_parallel"]
     queue_policy = (
-        "Scoring for this run is serialized. Expect FIFO behavior and do not stop just because the queue is busy."
+        "Scoring for this run is serialized. Run one scored evaluation at a time."
         if evaluation_mode == "serialized"
-        else f"Scoring for this run allows up to {max_parallel} concurrent queued evaluations, but you still must not batch blind future mutations."
+        else f"Scoring for this run allows up to {max_parallel} concurrent evaluations, but you still must not batch blind future mutations."
     )
     return f"""You own exactly one benchmark run directory.
 
@@ -292,14 +331,14 @@ Hard constraints:
 - Treat the original evaluator `{evaluator_file}`, the copied evaluator `_user_evaluate.py`, and the GSOpt wrapper scripts as fixed scoring infrastructure unless the user explicitly asks to change the runtime itself.
 - The untouched baseline must be archived first as iteration 0.
 - Then complete exactly iterations 1 through {run_meta["target_iterations"]}.
-- One outer iteration = one code mutation + one queued tracked evaluation.
+- One outer iteration = one code mutation + one scored evaluation.
 - Use only `evaluate.py` for scored evaluations.
 - Every scored evaluation must use `--description` with a short technical mutation summary that explicitly names the code changes.
 - Optimize the evaluator's returned score/objective, not an assumed proxy metric.
 - {queue_policy}
 - Inspect the previous scored result before choosing the next mutation.
 - If the last result is `discard` or `crash`, restore the best kept iteration before continuing.
-- Do not queue batches of future mutations.
+- Do not batch future mutations.
 - Do not use offline probes, parameter sweeps, or hidden menu-search code paths.
 
 Creativity guidance:
@@ -467,19 +506,38 @@ def init_run(
 
 
 def sync_benchmark_entrypoints() -> dict:
+    from benchkit.registry import load_examples
+
     repo_root = find_repo_root()
     synced: list[dict[str, str]] = []
-    for manifest_path in sorted(repo_root.glob("examples/*/*/.gsopt.json")):
-        benchmark_root = manifest_path.parent
-        manifest = read_json(manifest_path)
-        if str(manifest.get("lane")) not in {"vqe", "tn", "afqmc", "dmrg"}:
+    evaluator_modules = {
+        "vqe": "examples.vqe.benchmark_evaluate",
+        "tn": "examples.tn.benchmark_evaluate",
+        "afqmc": "examples.afqmc.benchmark_evaluate",
+        "dmrg": "examples.dmrg.benchmark_evaluate",
+    }
+    for example in load_examples(repo_root):
+        benchmark_root = (repo_root / example.source_template).resolve().parent
+        manifest_path = benchmark_root / MANIFEST_NAME
+        manifest = example.manifest_payload()
+        write_json(manifest_path, manifest)
+        lane = str(manifest.get("lane"))
+        module_path = evaluator_modules.get(lane)
+        if module_path is None:
             continue
-        _write_text(benchmark_root / "evaluate.py", WRAPPER_TEMPLATE.format(entrypoint="evaluate_main"))
+        _write_text(
+            benchmark_root / "evaluate.py",
+            BENCHMARK_EVALUATOR_TEMPLATE.format(
+                module_path=module_path,
+                source_file=str(manifest["source_file"]),
+            ),
+        )
         synced.append(
             {
-                "lane": str(manifest["lane"]),
+                "lane": lane,
                 "benchmark": str(manifest["benchmark_value"]),
                 "benchmark_root": str(benchmark_root),
+                "manifest_path": str(manifest_path),
             }
         )
     return {"synced": synced}

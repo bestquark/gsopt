@@ -2,22 +2,28 @@
 
 This repo is organized around `examples/`, `figs/`, `skills/`, and `benchkit/`.
 
-If you want the smallest possible agent-editable targets, prefer the benchmark-local method files:
+If you want the smallest agent-editable targets, prefer the benchmark-local method files:
 
 - `examples/vqe/bh/simple_vqe.py`
 - `examples/vqe/lih/simple_vqe.py`
 - `examples/vqe/beh2/simple_vqe.py`
 - `examples/vqe/h2o/simple_vqe.py`
 - `examples/vqe/n2/simple_vqe.py`
+- `examples/tn/heisenberg_xxx_384/initial_script.py`
+- `examples/tn/xxz_gapless_256/initial_script.py`
+- `examples/tn/spin1_heisenberg_64/initial_script.py`
+- `examples/tn/tfim_2d_4x4/initial_script.py`
+- `examples/tn/heisenberg_2d_4x4/initial_script.py`
 - `examples/dmrg/heisenberg_xxx_384/simple_dmrg.py`
 - `examples/dmrg/xxz_gapless_256/simple_dmrg.py`
 - `examples/dmrg/tfim_longitudinal_256/simple_dmrg.py`
 - `examples/dmrg/spin1_heisenberg_64/simple_dmrg.py`
 - `examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py`
+- `examples/afqmc/h4_square_pbc/initial_script.py`
+- `examples/afqmc/h10_chain_pbc/initial_script.py`
+- `examples/afqmc/lih_cubic_pbc/initial_script.py`
+- `examples/afqmc/diamond_prim/initial_script.py`
 - `examples/gibbs/simple_gibbs_mcmc.py`
-
-For VQE, the active external-agent lane is intentionally the five molecule-specific `simple_vqe.py` files, `track_iteration.py`, `queued_track_iteration.py`, and the root plot script `figs/vqe/make_energy_figure.py`.
-For DMRG, the active external-agent lane is intentionally the five model-specific `simple_dmrg.py` files, `track_iteration.py`, `queued_track_iteration.py`, and the root plot script `figs/dmrg/make_energy_figure.py`.
 
 ## Setup
 
@@ -38,27 +44,17 @@ Default mutation workflow:
 ## Canonical Lane Commands
 
 - VQE smoke: `uv run python examples/vqe/bh/simple_vqe.py --wall-seconds 5`
-- VQE full evaluation command:
-  - `uv run python examples/vqe/queued_track_iteration.py --script examples/vqe/bh/simple_vqe.py --molecule BH --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/vqe/queued_track_iteration.py --script examples/vqe/lih/simple_vqe.py --molecule LiH --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/vqe/queued_track_iteration.py --script examples/vqe/beh2/simple_vqe.py --molecule BeH2 --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/vqe/queued_track_iteration.py --script examples/vqe/h2o/simple_vqe.py --molecule H2O --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/vqe/queued_track_iteration.py --script examples/vqe/n2/simple_vqe.py --molecule N2 --wall-seconds 20 --max-parallel 1`
+- TN smoke: `uv run python examples/tn/heisenberg_xxx_384/initial_script.py --wall-seconds 5`
 - DMRG smoke: `uv run python examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --wall-seconds 5`
-- DMRG full evaluation command:
-  - `uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --model heisenberg_xxx_384 --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/xxz_gapless_256/simple_dmrg.py --model xxz_gapless_256 --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/tfim_longitudinal_256/simple_dmrg.py --model tfim_longitudinal_256 --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/spin1_heisenberg_64/simple_dmrg.py --model spin1_heisenberg_64 --wall-seconds 20 --max-parallel 1`
-  - `uv run python examples/dmrg/queued_track_iteration.py --script examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py --model spin1_single_ion_critical_64 --wall-seconds 20 --max-parallel 1`
+- AFQMC smoke: `uv run python examples/afqmc/h4_square_pbc/initial_script.py --wall-seconds 5`
 - Gibbs: `uv run python examples/gibbs/search.py examples/gibbs/configs/tfim6.json`
 
 Figures:
 
 - `uv run python figs/vqe/make_energy_figure.py`
-- Parallel VQE session prompts: `examples/vqe/instructions/`
+- `uv run python figs/tn/make_energy_figure.py`
 - `uv run python figs/dmrg/make_energy_figure.py`
-- Parallel DMRG session prompts: `examples/dmrg/instructions/`
+- `uv run python figs/afqmc/make_energy_figure.py`
 
 ## Ground Rules
 
@@ -66,21 +62,14 @@ Figures:
 - Prefer the generated `examples/<lane>/<benchmark>/run_<timestamp>/` directories as the mutation surface for long agent campaigns.
 - Use `campaign.py` inside a run directory when you need an outer relaunch loop that keeps waking Codex or Claude until the target iteration count is reached.
 - Use `skills/gsopt/` as the canonical workflow wrapper and runtime exposed through `npx skills add`.
-- Treat `benchkit/` as compatibility glue plus shared Optuna helpers, not the primary implementation surface.
+- Treat `benchkit/` as shared internal baseline helpers and compatibility glue, not the primary mutation-loop surface.
 - Prefer editing the lane-specific method file rather than paper text first.
-- The active VQE benchmark is a fixed-budget CUDA-Q run on five molecules ordered from easier to harder: `BH`, `LiH`, `BeH2`, `H2O`, and `N2`.
-- For VQE external-agent runs, the agent should directly mutate its own molecule-specific `examples/vqe/<molecule>/simple_vqe.py`, not select from a predeclared ansatz/optimizer menu.
-- Each VQE evaluation gets the same 20-second wall-time budget, and the score of interest is the final energy or `\Delta E` at the end of that run.
-- Use `examples/vqe/queued_track_iteration.py` for same-machine multi-agent runs; VQE scoring is intentionally serialized through a FIFO on-disk queue so every run sees the same machine state.
-- When using `gsopt`, scorer overlap is a run-level policy: `serialized` means `max_parallel=1`, while `parallel` allows a bounded `max_parallel` chosen at run creation.
-- The current VQE evaluator caps BLAS/OpenMP thread counts at 10 for each scored run, matching the 10 performance cores of the local Apple M4 Pro machine.
-- Use `examples/vqe/track_iteration.py` to archive the exact method file and diff for each accepted outer iteration.
-- The intended outer-loop budget is 100 code-mutation iterations per molecule.
-- The active DMRG benchmark is a fixed-budget five-model external-agent lane on harder lattice Hamiltonians defined with QuTiP operators and optimized with Quimb DMRG sweeps.
-- For DMRG external-agent runs, the agent should directly mutate its own model-specific `examples/dmrg/<model>/simple_dmrg.py`, not select from a config menu.
-- Each DMRG evaluation gets the same 20-second wall-time budget, and the score of interest is excess energy relative to a frozen offline high-accuracy DMRG reference.
-- Use `examples/dmrg/queued_track_iteration.py` for same-machine multi-agent runs; DMRG scoring is intentionally serialized through a FIFO on-disk queue so every run sees the same machine state.
-- The current DMRG evaluator caps BLAS/OpenMP thread counts at 10 for each scored run, matching the 10 performance cores of the local Apple M4 Pro machine.
-- Use `examples/dmrg/track_iteration.py` to archive the exact method file and diff for each DMRG outer iteration.
-- Archive the untouched DMRG baseline as iteration `0`, then run 100 code-mutation iterations `1` through `100`.
+- The active VQE benchmark is the fixed-budget five-molecule CUDA-Q suite: `BH`, `LiH`, `BeH2`, `H2O`, and `N2`.
+- The active TN benchmark is the fixed-budget five-model tensor-network suite: `heisenberg_xxx_384`, `xxz_gapless_256`, `spin1_heisenberg_64`, `tfim_2d_4x4`, and `heisenberg_2d_4x4`.
+- The active DMRG benchmark is the fixed-budget five-model DMRG suite: `heisenberg_xxx_384`, `xxz_gapless_256`, `tfim_longitudinal_256`, `spin1_heisenberg_64`, and `spin1_single_ion_critical_64`.
+- The active AFQMC benchmark is the fixed-budget four-system periodic-electronic suite: `h4_square_pbc`, `h10_chain_pbc`, `lih_cubic_pbc`, and `diamond_prim`.
+- For GSOpt runs, the agent should mutate the benchmark-local method file and treat `evaluate.py` as fixed scoring infrastructure.
+- Each scored benchmark evaluation uses the same 20-second wall-time budget within a lane unless the benchmark explicitly documents otherwise.
+- GSOpt owns iteration tracking, best-state restore, run-local logging, and the watchdog/campaign flow.
 - The Gibbs lane currently optimizes exact-reference quantum state approximation. `simple_gibbs_mcmc.py` is a separate classical Ising MCMC benchmark; do not conflate the two.
+- Historical snapshot archives are expected outside the tracked repo tree. Point plotting scripts at those archives with `AUTORESEARCH_*_SNAPSHOT_ROOT` when needed.

@@ -4,7 +4,6 @@ import argparse
 import json
 import os
 import shutil
-import subprocess
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -16,8 +15,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from benchkit.optuna_utils import (
-    THREAD_BUDGET_ENV,
-    acquire_slot,
     load_python_module,
     prepare_frozen_source,
     resolve_repo_path,
@@ -25,11 +22,10 @@ from benchkit.optuna_utils import (
     study_root,
     write_json,
 )
+from benchkit.trial_eval import run_trial_source
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[1]
-QUEUE_ROOT = SCRIPT_DIR / "eval_queue"
-TRACKED_SNAPSHOT_ROOT = SCRIPT_DIR / "optuna_tracked_snapshots"
 CONFIG_OVERRIDE_ENV = "AUTORESEARCH_VQE_CONFIG_JSON"
 SUMMARY_HEADER = (
     "trial\tstatus\tobjective\tfinal_energy\ttarget_energy\tfinal_error\tchem_acc_step\t"
@@ -456,19 +452,18 @@ def suggest_n2_config(trial: optuna.Trial, module) -> dict:
     return config
 
 
-def suggest_vqe_config(trial: optuna.Trial, module) -> dict:
-    molecule = module.MOLECULE_NAME
-    if molecule == "BH":
+def suggest_vqe_config(trial: optuna.Trial, module, benchmark_label: str) -> dict:
+    if benchmark_label == "BH":
         return suggest_bh_config(trial, module)
-    if molecule == "LiH":
+    if benchmark_label == "LiH":
         return suggest_lih_config(trial, module)
-    if molecule == "BeH2":
+    if benchmark_label == "BeH2":
         return suggest_beh2_config(trial, module)
-    if molecule == "H2O":
+    if benchmark_label == "H2O":
         return suggest_h2o_config(trial, module)
-    if molecule == "N2":
+    if benchmark_label == "N2":
         return suggest_n2_config(trial, module)
-    raise ValueError(f"unsupported VQE molecule {molecule!r}")
+    raise ValueError(f"unsupported VQE molecule {benchmark_label!r}")
 
 
 def write_best_result(path: Path, study: optuna.Study):
@@ -505,7 +500,6 @@ def main():
     source_file = resolve_repo_path(REPO_ROOT, args.script) if args.script else default_script_for(args.molecule)
     label = args.molecule
     root = resolve_repo_path(REPO_ROOT, args.archive_root) if args.archive_root else study_root(SCRIPT_DIR, label)
-    tracked_snapshot_root = root / "tracked_snapshots"
     if args.reset and root.exists():
         shutil.rmtree(root)
     root.mkdir(parents=True, exist_ok=True)
@@ -533,7 +527,6 @@ def main():
         "sampler_seed": args.seed,
         "startup_trials": args.startup_trials,
         "max_parallel": args.max_parallel,
-        "tracked_snapshot_root": str(tracked_snapshot_root),
     }
     initial_full_config, initial_source = initial_snapshot_config(args.molecule)
     if initial_full_config is None:
@@ -557,151 +550,73 @@ def main():
         if trial.number == 0:
             config = dict(initial_full_config)
         else:
-            config = suggest_vqe_config(trial, module)
+            config = suggest_vqe_config(trial, module, args.molecule)
         trial_dir = root / f"trial_{trial.number:04d}"
         trial_dir.mkdir(parents=True, exist_ok=False)
         write_json(trial_dir / "config.json", config)
 
         description = f"Optuna VQE trial {trial.number}"
-        slot_dir = None
-        request_dir = None
         queue_wait_seconds = 0.0
-        queue_rank = None
-        queue_slot = None
-        try:
-            queue_slot, slot_dir, request_dir, queue_wait_seconds, queue_rank = acquire_slot(
-                queue_root=QUEUE_ROOT,
-                max_parallel=args.max_parallel,
-                poll_seconds=args.poll_seconds,
-                label_key="molecule",
-                label_value=args.molecule,
-                source_script=str(frozen_source),
-                description=description,
-                requested_index=trial.number,
-            )
-            env = os.environ.copy()
-            env.update(THREAD_BUDGET_ENV)
-            env["AUTORESEARCH_VQE_SNAPSHOT_ROOT"] = str(tracked_snapshot_root)
-            env[CONFIG_OVERRIDE_ENV] = json.dumps(config)
-            proc = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPT_DIR / "track_iteration.py"),
-                    "--script",
-                    str(frozen_source),
-                    "--molecule",
-                    args.molecule,
-                    "--wall-seconds",
-                    str(args.wall_seconds),
-                    "--iteration",
-                    str(trial.number),
-                    "--description",
-                    description,
-                ],
-                cwd=REPO_ROOT,
-                env=env,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            stdout = proc.stdout.strip()
-            stderr = proc.stderr.strip()
-            status = "keep"
-            error_text = None
-            result = None
-            if proc.returncode != 0:
-                status = "crash"
-                error_text = stderr or stdout or "trial evaluation failed"
-            else:
-                try:
-                    result = json.loads(stdout)
-                except json.JSONDecodeError as exc:
-                    status = "crash"
-                    error_text = f"evaluation stdout was not valid JSON: {exc}"
+        result, stdout, stderr, error_text = run_trial_source(
+            source_file=frozen_source,
+            repo_root=REPO_ROOT,
+            wall_seconds=args.wall_seconds,
+            extra_env={CONFIG_OVERRIDE_ENV: json.dumps(config)},
+        )
 
-            metadata = {
+        status = "keep" if result is not None else "crash"
+        write_json(
+            trial_dir / "metadata.json",
+            {
                 "trial": trial.number,
                 "molecule": args.molecule,
                 "status": status,
-                "queue_slot": queue_slot,
-                "queue_rank_at_start": queue_rank,
                 "queue_wait_seconds": queue_wait_seconds,
-                "request_id": request_dir.name if request_dir is not None else None,
                 "description": description,
-            }
-            write_json(trial_dir / "metadata.json", metadata)
-            if stdout:
-                (trial_dir / "stdout.txt").write_text(stdout + "\n")
-            if stderr:
-                (trial_dir / "stderr.txt").write_text(stderr + "\n")
-            if error_text is not None:
-                (trial_dir / "error.txt").write_text(error_text + "\n")
+            },
+        )
+        if stdout:
+            (trial_dir / "stdout.txt").write_text(stdout + "\n")
+        if stderr:
+            (trial_dir / "stderr.txt").write_text(stderr + "\n")
+        if error_text is not None:
+            (trial_dir / "error.txt").write_text(error_text + "\n")
 
-            if result is None:
-                penalty_row = {
-                    "trial": trial.number,
-                    "status": status,
-                    "objective": CRASH_PENALTY,
-                    "final_energy": CRASH_PENALTY,
-                    "target_energy": 0.0,
-                    "final_error": CRASH_PENALTY,
-                    "chem_acc_step": None,
-                    "wall_seconds": args.wall_seconds,
-                    "queue_wait_seconds": queue_wait_seconds,
-                    "trial_dir": str(trial_dir),
-                }
-                append_summary(root / "summary.tsv", penalty_row)
-                trial.set_user_attr("status", status)
-                trial.set_user_attr("trial_dir", str(trial_dir))
-                return CRASH_PENALTY
-
-            if result.get("status") == "crash" or result.get("final_energy") is None:
-                write_json(trial_dir / "tracker_result.json", result)
-                penalty_row = {
-                    "trial": trial.number,
-                    "status": result.get("status", "crash"),
-                    "objective": CRASH_PENALTY,
-                    "final_energy": CRASH_PENALTY,
-                    "target_energy": 0.0,
-                    "final_error": CRASH_PENALTY,
-                    "chem_acc_step": None,
-                    "wall_seconds": float(result.get("wall_seconds", args.wall_seconds)),
-                    "queue_wait_seconds": queue_wait_seconds,
-                    "trial_dir": str(trial_dir),
-                }
-                append_summary(root / "summary.tsv", penalty_row)
-                trial.set_user_attr("status", result.get("status", "crash"))
-                trial.set_user_attr("trial_dir", str(trial_dir))
-                trial.set_user_attr("tracked_snapshot_dir", result.get("snapshot_dir"))
-                return CRASH_PENALTY
-
-            tracked_snapshot_dir = Path(result["snapshot_dir"])
-            tracked_result_path = tracked_snapshot_dir / "result.json"
-            raw_payload = json.loads(tracked_result_path.read_text()) if tracked_result_path.exists() else result
-            write_json(trial_dir / "tracker_result.json", result)
-            write_json(trial_dir / "result.json", raw_payload)
-            row = {
+        if result is None:
+            penalty_row = {
                 "trial": trial.number,
-                "status": result["status"],
-                "objective": float(result["final_energy"]),
-                "final_energy": float(result["final_energy"]),
-                "target_energy": float(result["target_energy"]),
-                "final_error": float(result["final_error"]),
-                "chem_acc_step": result.get("chem_acc_step"),
-                "wall_seconds": float(result["wall_seconds"]),
+                "status": status,
+                "objective": CRASH_PENALTY,
+                "final_energy": CRASH_PENALTY,
+                "target_energy": 0.0,
+                "final_error": CRASH_PENALTY,
+                "chem_acc_step": None,
+                "wall_seconds": args.wall_seconds,
                 "queue_wait_seconds": queue_wait_seconds,
                 "trial_dir": str(trial_dir),
             }
-            append_summary(root / "summary.tsv", row)
-            trial.set_user_attr("status", result["status"])
+            append_summary(root / "summary.tsv", penalty_row)
+            trial.set_user_attr("status", status)
             trial.set_user_attr("trial_dir", str(trial_dir))
-            trial.set_user_attr("tracked_snapshot_dir", result.get("snapshot_dir"))
-            return float(result["final_energy"])
-        finally:
-            if slot_dir is not None and slot_dir.exists():
-                shutil.rmtree(slot_dir, ignore_errors=True)
-            if request_dir is not None and request_dir.exists():
-                shutil.rmtree(request_dir, ignore_errors=True)
+            return CRASH_PENALTY
+
+        write_json(trial_dir / "result.json", result)
+        row = {
+            "trial": trial.number,
+            "status": result.get("status", "keep"),
+            "objective": float(result["final_energy"]),
+            "final_energy": float(result["final_energy"]),
+            "target_energy": float(result["target_energy"]),
+            "final_error": float(result["final_error"]),
+            "chem_acc_step": result.get("chem_acc_step"),
+            "wall_seconds": float(result["wall_seconds"]),
+            "queue_wait_seconds": queue_wait_seconds,
+            "trial_dir": str(trial_dir),
+        }
+        append_summary(root / "summary.tsv", row)
+        trial.set_user_attr("status", result.get("status", "keep"))
+        trial.set_user_attr("trial_dir", str(trial_dir))
+        return float(result["final_energy"])
 
     finished_trials = [trial for trial in study.trials if trial.value is not None]
     remaining_trials = max(0, args.trials - len(finished_trials))

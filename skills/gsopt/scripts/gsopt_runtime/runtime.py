@@ -246,12 +246,14 @@ def _collect_from_local_log(context: RunContext) -> dict[str, Any]:
 
 
 def collect_status(context: RunContext, write: bool = False) -> dict[str, Any]:
-    if context.is_run and not context.manifest.get("queue_script") and (
-        context.evaluations_log.exists() or (context.root_dir / "_user_evaluate.py").exists()
+    if not context.manifest.get("queue_script") and (
+        context.evaluations_log.exists()
+        or (context.root_dir / "_user_evaluate.py").exists()
+        or (context.root_dir / str(context.manifest.get("evaluator_file", "evaluate.py"))).exists()
     ):
         payload = _collect_from_local_log(context)
     else:
         payload = _collect_from_results_tsv(context)
-    if write and context.is_run:
+    if write:
         write_json(context.root_dir / "status.json", payload)
     return payload

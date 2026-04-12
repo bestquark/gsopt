@@ -47,6 +47,8 @@ class TraceRecord:
     best_x: tuple[float, ...]
     baseline_samples: tuple[float, ...]
     best_samples: tuple[float, ...]
+    baseline_params: str
+    best_params: str
 
 
 def configure_style():
@@ -131,6 +133,30 @@ def _extract_trace(result: dict) -> tuple[str, tuple[float, ...], tuple[float, .
     return ("Sample index", (1.0,), (final_energy,))
 
 
+def _format_run_params(result: dict, title: str) -> str:
+    config = result.get("config", {})
+    timestep = config.get("timestep", result.get("timestep"))
+    walkers_total = result.get("num_walkers_total")
+    if walkers_total is None:
+        walkers = config.get("num_walkers_per_rank")
+        mpi_size = result.get("mpi_size")
+        if walkers is not None and mpi_size is not None:
+            walkers_total = int(walkers) * int(mpi_size)
+    steps_per_block = config.get("num_steps_per_block", result.get("num_steps_per_block"))
+    num_blocks = config.get("num_blocks", result.get("num_blocks_requested"))
+    stabilize = config.get("stabilize_freq", result.get("stabilize_freq"))
+    pop_control = config.get("pop_control_freq", result.get("pop_control_freq"))
+    return "\n".join(
+        [
+            title,
+            rf"$\tau = {float(timestep):g}$",
+            rf"$N_{{\mathrm{{w}}}} = {int(walkers_total)}$",
+            rf"$B = {int(steps_per_block)} \times {int(num_blocks)}$",
+            rf"$s/p = {int(stabilize)} / {int(pop_control)}$",
+        ]
+    )
+
+
 def load_record(system: str) -> TraceRecord:
     run_dir = _latest_run_dir(system)
     baseline_snapshot = run_dir / "snapshots" / "iter_0000"
@@ -170,6 +196,8 @@ def load_record(system: str) -> TraceRecord:
         best_x=best_x,
         baseline_samples=baseline_samples,
         best_samples=best_samples,
+        baseline_params=_format_run_params(baseline_result, "Initial"),
+        best_params=_format_run_params(best_result, "Optimized"),
     )
 
 
@@ -242,32 +270,44 @@ def main():
         axis.set_title(system_label_tex(record.system), pad=12)
         axis.set_xlabel(record.x_label)
         axis.set_xlim(min(baseline_x.min(), best_x.min()), max(baseline_x.max(), best_x.max()))
-
-        subtitle = (
-            rf"Initial $E={record.baseline_energy:.6f}$" "\n"
-            rf"Optimized $E={record.best_energy:.6f}$"
-        )
         axis.text(
             0.03,
-            0.97,
-            subtitle,
+            0.04,
+            record.baseline_params,
             transform=axis.transAxes,
-            va="top",
+            va="bottom",
             ha="left",
-            fontsize=17,
+            fontsize=14,
             bbox={
                 "facecolor": "white",
-                "alpha": 0.9,
+                "alpha": 0.94,
                 "edgecolor": "#d7d7d7",
-                "boxstyle": "round,pad=0.25",
+                "boxstyle": "round,pad=0.22",
             },
+            zorder=5,
+        )
+        axis.text(
+            0.41,
+            0.04,
+            record.best_params,
+            transform=axis.transAxes,
+            va="bottom",
+            ha="left",
+            fontsize=14,
+            bbox={
+                "facecolor": "white",
+                "alpha": 0.94,
+                "edgecolor": "#d7d7d7",
+                "boxstyle": "round,pad=0.22",
+            },
+            zorder=5,
         )
 
     axes[0].set_ylabel(r"Energy [Ha]")
 
     legend_handles = [
-        Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.0, label="Initial running mean"),
-        Line2D([0], [0], color=OPT_EDGE, linewidth=3.2, label="Optimized running mean"),
+        Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.0, label=r"Initial $\langle E(\tau)\rangle$"),
+        Line2D([0], [0], color=OPT_EDGE, linewidth=3.2, label=r"Optimized $\langle E(\tau)\rangle$"),
         Patch(facecolor=CHEMICAL_ACCURACY_COLOR, alpha=0.22, label=r"$\pm 1$ kcal/mol"),
         Line2D([0], [0], color=REFERENCE_COLOR, linewidth=2.8, label=records[-1].reference_label),
     ]

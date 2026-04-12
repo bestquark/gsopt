@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-MANIFEST_NAMES = (".gsopt.json", "gsopt.json", ".energyopt.json", "energyopt.json")
+MANIFEST_NAMES = (".gsopt.json",)
 DEFAULT_EVALUATOR_CANDIDATES = ("evaluate.py", "evaluator.py", "eval.py")
 DEFAULT_SOURCE_CANDIDATES = (
     "initial_script.py",

@@ -40,5 +40,7 @@ examples/*/fresh_autoresearch_*/
 examples/*/rerun_snapshots_*/
 examples/*/*_track_*/
 examples/afqmc/configs/
+examples/*/.gsopt_eval_*/
+examples/*/*/.afqmc_violin_eval_*.py
 logs/
 experiment1_run.log

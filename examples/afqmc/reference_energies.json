@@ -46,58 +46,254 @@
   },
   "h10_chain_pbc": {
     "trial": "rhf",
-    "reference_method": "MP2",
-    "scf_energy": -4.940763335063277,
-    "correlation_energy": -0.0657454955847581,
-    "reference_energy": -5.006508830648035,
+    "primary_reference": "ccsd_t",
+    "reference_method": "CCSD(T)",
+    "reference_energy": -5.0320998662636915,
     "converged": true,
-    "wall_seconds": 28.69223141600378,
+    "reference_converged": true,
+    "wall_seconds": 518.5113022919977,
+    "build_wall_seconds": 0.000495875021442771,
+    "scf_wall_seconds": 355.9277301670518,
+    "ccsd_wall_seconds": 82.68758112494834,
+    "eris_wall_seconds": 79.88063245802186,
+    "triples_wall_seconds": 0.005778374965302646,
     "basis": "gth-szv",
     "pseudo": "gth-pade",
     "nao": 10,
     "nelectron": 10,
-    "label": "H10 chain supercell"
+    "label": "H10 chain supercell",
+    "kmesh": [
+      1,
+      1,
+      1
+    ],
+    "references": {
+      "ccsd_t": {
+        "method_key": "ccsd_t",
+        "reference_method": "CCSD(T)",
+        "convergence_mode": "offline_unconstrained_reference",
+        "scf_energy": -4.940763335066881,
+        "correlation_energy": -0.09040305559181595,
+        "triples_correction": -0.0009334756049942697,
+        "triples_correction_imag": 0.0,
+        "reference_energy": -5.0320998662636915,
+        "converged": true,
+        "reference_converged": true,
+        "wall_seconds": 518.5113022919977,
+        "build_wall_seconds": 0.000495875021442771,
+        "scf_wall_seconds": 355.9277301670518,
+        "ccsd_wall_seconds": 82.68758112494834,
+        "eris_wall_seconds": 79.88063245802186,
+        "triples_wall_seconds": 0.005778374965302646,
+        "kmesh": [
+          1,
+          1,
+          1
+        ],
+        "scf_config": {
+          "name": "reference_krhf_krccsd_t",
+          "trial": "rhf",
+          "cell_precision": 1e-10,
+          "conv_tol": 1e-12,
+          "max_cycle": 256,
+          "diis_space": 12,
+          "level_shift": 0.0,
+          "damping": 0.0,
+          "init_guess": "minao"
+        },
+        "ccsd_conv_tol": 1e-09,
+        "ccsd_conv_tol_normt": 1e-07,
+        "ccsd_max_cycle": 256
+      }
+    }
   },
   "lih_cubic_pbc": {
     "trial": "rhf",
-    "reference_method": "MP2",
-    "scf_energy": -8.07449130476998,
-    "correlation_energy": -0.009874179397847564,
-    "reference_energy": -8.084365484167828,
+    "primary_reference": "ccsd_t",
+    "reference_method": "CCSD(T)",
+    "reference_energy": -8.096288709631471,
     "converged": true,
-    "wall_seconds": 15.497150709037669,
+    "reference_converged": true,
+    "wall_seconds": 248.67631808295846,
+    "build_wall_seconds": 0.0007553329924121499,
+    "scf_wall_seconds": 168.23745804198552,
+    "ccsd_wall_seconds": 40.56153095792979,
+    "eris_wall_seconds": 39.85378566698637,
+    "triples_wall_seconds": 0.0031361249275505543,
     "basis": "gth-szv",
     "pseudo": "gth-pade",
     "nao": 3,
     "nelectron": 4,
-    "label": "LiH cubic supercell"
+    "label": "LiH cubic supercell",
+    "kmesh": [
+      1,
+      1,
+      1
+    ],
+    "references": {
+      "ccsd_t": {
+        "method_key": "ccsd_t",
+        "reference_method": "CCSD(T)",
+        "convergence_mode": "offline_unconstrained_reference",
+        "scf_energy": -8.07449130477087,
+        "correlation_energy": -0.02179740486060077,
+        "triples_correction": 4.1285629874348975e-20,
+        "triples_correction_imag": 0.0,
+        "reference_energy": -8.096288709631471,
+        "converged": true,
+        "reference_converged": true,
+        "wall_seconds": 248.67631808295846,
+        "build_wall_seconds": 0.0007553329924121499,
+        "scf_wall_seconds": 168.23745804198552,
+        "ccsd_wall_seconds": 40.56153095792979,
+        "eris_wall_seconds": 39.85378566698637,
+        "triples_wall_seconds": 0.0031361249275505543,
+        "kmesh": [
+          1,
+          1,
+          1
+        ],
+        "scf_config": {
+          "name": "reference_krhf_krccsd_t",
+          "trial": "rhf",
+          "cell_precision": 1e-10,
+          "conv_tol": 1e-12,
+          "max_cycle": 256,
+          "diis_space": 12,
+          "level_shift": 0.0,
+          "damping": 0.0,
+          "init_guess": "minao"
+        },
+        "ccsd_conv_tol": 1e-09,
+        "ccsd_conv_tol_normt": 1e-07,
+        "ccsd_max_cycle": 256
+      }
+    }
   },
   "diamond_prim": {
     "trial": "rhf",
-    "reference_method": "MP2",
-    "scf_energy": -0.6015421599655895,
-    "correlation_energy": -0.0569823713755944,
-    "reference_energy": -0.6585245313411838,
+    "primary_reference": "ccsd_t",
+    "reference_method": "CCSD(T)",
+    "reference_energy": -0.7301111404395049,
     "converged": true,
-    "wall_seconds": 4.672679582959972,
+    "reference_converged": true,
+    "wall_seconds": 43.59240820794366,
+    "build_wall_seconds": 0.0006515420973300934,
+    "scf_wall_seconds": 22.777849209029227,
+    "ccsd_wall_seconds": 10.379478166927584,
+    "eris_wall_seconds": 10.39924687508028,
+    "triples_wall_seconds": 0.0032955409260466695,
     "basis": "gth-szv",
     "pseudo": "gth-pade",
     "nao": 8,
     "nelectron": 8,
-    "label": "Diamond primitive cell"
+    "label": "Diamond primitive cell",
+    "kmesh": [
+      1,
+      1,
+      1
+    ],
+    "references": {
+      "ccsd_t": {
+        "method_key": "ccsd_t",
+        "reference_method": "CCSD(T)",
+        "convergence_mode": "offline_unconstrained_reference",
+        "scf_energy": -0.6015421620232111,
+        "correlation_energy": -0.1285689784162938,
+        "triples_correction": -1.873100986827432e-29,
+        "triples_correction_imag": 0.0,
+        "reference_energy": -0.7301111404395049,
+        "converged": true,
+        "reference_converged": true,
+        "wall_seconds": 43.59240820794366,
+        "build_wall_seconds": 0.0006515420973300934,
+        "scf_wall_seconds": 22.777849209029227,
+        "ccsd_wall_seconds": 10.379478166927584,
+        "eris_wall_seconds": 10.39924687508028,
+        "triples_wall_seconds": 0.0032955409260466695,
+        "kmesh": [
+          1,
+          1,
+          1
+        ],
+        "scf_config": {
+          "name": "reference_krhf_krccsd_t",
+          "trial": "rhf",
+          "cell_precision": 1e-10,
+          "conv_tol": 1e-12,
+          "max_cycle": 256,
+          "diis_space": 12,
+          "level_shift": 0.0,
+          "damping": 0.0,
+          "init_guess": "minao"
+        },
+        "ccsd_conv_tol": 1e-09,
+        "ccsd_conv_tol_normt": 1e-07,
+        "ccsd_max_cycle": 256
+      }
+    }
   },
   "h8_cube_pbc": {
     "trial": "rhf",
-    "reference_method": "MP2",
-    "scf_energy": -3.0566804345000342,
-    "correlation_energy": -0.049719563631547184,
-    "reference_energy": -3.1063999981315815,
+    "primary_reference": "ccsd_t",
+    "reference_method": "CCSD(T)",
+    "reference_energy": -3.1220655712474654,
     "converged": true,
-    "wall_seconds": 12.069203457911499,
+    "reference_converged": true,
+    "wall_seconds": 124.47568429110106,
+    "build_wall_seconds": 0.0009814579971134663,
+    "scf_wall_seconds": 62.63272604101803,
+    "ccsd_wall_seconds": 30.661356124910526,
+    "eris_wall_seconds": 31.15624929103069,
+    "triples_wall_seconds": 0.004285500035621226,
     "basis": "gth-szv",
     "pseudo": "gth-pade",
     "nao": 8,
     "nelectron": 8,
-    "label": "H8 cube supercell"
+    "label": "H8 cube supercell",
+    "kmesh": [
+      1,
+      1,
+      1
+    ],
+    "references": {
+      "ccsd_t": {
+        "method_key": "ccsd_t",
+        "reference_method": "CCSD(T)",
+        "convergence_mode": "offline_unconstrained_reference",
+        "scf_energy": -3.0566804344972702,
+        "correlation_energy": -0.06486314861244535,
+        "triples_correction": -0.0005219881377497586,
+        "triples_correction_imag": 0.0,
+        "reference_energy": -3.1220655712474654,
+        "converged": true,
+        "reference_converged": true,
+        "wall_seconds": 124.47568429110106,
+        "build_wall_seconds": 0.0009814579971134663,
+        "scf_wall_seconds": 62.63272604101803,
+        "ccsd_wall_seconds": 30.661356124910526,
+        "eris_wall_seconds": 31.15624929103069,
+        "triples_wall_seconds": 0.004285500035621226,
+        "kmesh": [
+          1,
+          1,
+          1
+        ],
+        "scf_config": {
+          "name": "reference_krhf_krccsd_t",
+          "trial": "rhf",
+          "cell_precision": 1e-10,
+          "conv_tol": 1e-12,
+          "max_cycle": 256,
+          "diis_space": 12,
+          "level_shift": 0.0,
+          "damping": 0.0,
+          "init_guess": "minao"
+        },
+        "ccsd_conv_tol": 1e-09,
+        "ccsd_conv_tol_normt": 1e-07,
+        "ccsd_max_cycle": 256
+      }
+    }
   }
 }

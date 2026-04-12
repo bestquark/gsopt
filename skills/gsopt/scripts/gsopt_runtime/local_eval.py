@@ -34,8 +34,7 @@ def _freeze_root(context: RunContext) -> Path:
 def _freeze_source(context: RunContext) -> tuple[tempfile.TemporaryDirectory[str], Path, bytes, str]:
     source_bytes = context.source_path.read_bytes()
     source_hash = _sha256_bytes(source_bytes)
-    lane = str(context.manifest.get("lane", "benchmark"))
-    staging_dir = tempfile.TemporaryDirectory(prefix=f"{lane}_eval_", dir=_freeze_root(context))
+    staging_dir = tempfile.TemporaryDirectory(prefix=".gsopt_eval_", dir=_freeze_root(context))
     frozen_file = Path(staging_dir.name) / context.source_path.name
     frozen_file.write_bytes(source_bytes)
     return staging_dir, frozen_file, source_bytes, source_hash

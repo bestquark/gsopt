@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 from .common import (
-    MANIFEST_NAMES,
     find_manifest_path,
     infer_evaluator_file,
     find_repo_root,
@@ -467,10 +466,6 @@ def init_run(
     for name in ("logs", "figs", "snapshots"):
         (run_dir / name).mkdir(parents=True, exist_ok=True)
     write_json(_manifest_path(run_dir), manifest)
-    for legacy_name in (".energyopt.json", "energyopt.json", "gsopt.json"):
-        legacy_manifest = run_dir / legacy_name
-        if legacy_manifest.exists() and legacy_manifest.name != MANIFEST_NAME:
-            legacy_manifest.unlink()
 
     for script_name, entrypoint in (
         ("evaluate.py", "evaluate_main"),

@@ -416,11 +416,7 @@ def main():
             if row_index == 0:
                 ax.set_title(DISPLAY_TITLES.get(model, PRETTY_LABELS[model]), pad=10)
                 ax.tick_params(labelbottom=False)
-            if row_index == 1:
-                ax.set_xlabel(r"Site $j$")
-            if col_index == 0:
-                ax.set_ylabel(r"Site $i$")
-            else:
+            if col_index != 0:
                 ax.tick_params(labelleft=False)
             ax.text(
                 0.03,
@@ -433,12 +429,14 @@ def main():
                 bbox={"facecolor": "white", "alpha": 0.88, "edgecolor": "none", "boxstyle": "round,pad=0.28"},
             )
 
-    fig.text(0.050, 0.74, "Initial", rotation=90, va="center", ha="center", fontsize=24)
-    fig.text(0.050, 0.29, "Optimized", rotation=90, va="center", ha="center", fontsize=24)
+    fig.text(0.030, 0.74, "Initial", rotation=90, va="center", ha="center", fontsize=24)
+    fig.text(0.030, 0.29, "Optimized", rotation=90, va="center", ha="center", fontsize=24)
+    fig.text(0.075, 0.50, r"Site $i$", rotation=90, va="center", ha="center", fontsize=24)
+    fig.text(0.47, 0.055, r"Site $j$", va="center", ha="center", fontsize=24)
     colorbar = fig.colorbar(image, ax=axes, fraction=0.026, pad=0.065)
     colorbar.set_label(r"$|I_{\mathrm{TN}} - I_{\mathrm{ref}}|$", size=24)
     colorbar.ax.tick_params(labelsize=24)
-    fig.subplots_adjust(left=0.11, right=0.85, bottom=0.12, top=0.90, wspace=0.20, hspace=0.05)
+    fig.subplots_adjust(left=0.12, right=0.85, bottom=0.12, top=0.90, wspace=0.20, hspace=0.05)
     fig.savefig(OUTPUT_PDF, bbox_inches="tight")
     fig.savefig(OUTPUT_PNG, dpi=240, bbox_inches="tight")
     plt.close(fig)

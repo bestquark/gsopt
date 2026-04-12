@@ -17,6 +17,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
+import quimb as qu
 import qutip
 import quimb.tensor as qtn
 
@@ -29,6 +30,7 @@ from model_registry import MODEL_SPECS
 
 np.seterr(all="ignore")
 warnings.filterwarnings("ignore", category=UserWarning)
+MUTUAL_INFO_MAX_SITES = 20
 
 
 @dataclass(frozen=True)
@@ -90,30 +92,55 @@ def config_to_dict(cfg: RunConfig) -> dict:
     return payload
 
 
-def build_uniform_1d_hamiltonians(spec) -> tuple[qtn.MatrixProductOperator, qtn.LocalHam1D]:
+def _build_spinham_1d_components(spec):
     ops = spin_ops_arrays(spec.spin)
+    builder = qtn.SpinHam1D(S=spec.spin, cyclic=spec.cyclic)
     h2 = np.zeros((ops["sx"].shape[0] ** 2, ops["sx"].shape[0] ** 2), dtype=np.complex128)
+    h1 = None
     if spec.family in {"heisenberg_xxx", "xxz"}:
         h2 = (
             spec.jxy * np.kron(ops["sx"], ops["sx"])
             + spec.jxy * np.kron(ops["sy"], ops["sy"])
             + spec.jz * np.kron(ops["sz"], ops["sz"])
         )
-        h1 = spec.bz * ops["sz"] if abs(spec.bz) > 0.0 else None
+        if abs(spec.jxy) > 0.0:
+            builder += (spec.jxy, ops["sx"], ops["sx"])
+            builder += (spec.jxy, ops["sy"], ops["sy"])
+        if abs(spec.jz) > 0.0:
+            builder += (spec.jz, ops["sz"], ops["sz"])
+        if abs(spec.bz) > 0.0:
+            h1 = spec.bz * ops["sz"]
+            builder += (spec.bz, ops["sz"])
+    elif spec.family == "tfim":
+        h2 = spec.j * np.kron(ops["sz"], ops["sz"])
+        if abs(spec.j) > 0.0:
+            builder += (spec.j, ops["sz"], ops["sz"])
+        if abs(spec.bx) > 0.0:
+            h1 = -spec.bx * ops["sx"]
+            builder += (-spec.bx, ops["sx"])
+    elif spec.family == "xx":
+        h2 = spec.jxy * np.kron(ops["sx"], ops["sx"]) + spec.jxy * np.kron(ops["sy"], ops["sy"])
+        if abs(spec.jxy) > 0.0:
+            builder += (spec.jxy, ops["sx"], ops["sx"])
+            builder += (spec.jxy, ops["sy"], ops["sy"])
+        if abs(spec.bz) > 0.0:
+            h1 = -spec.bz * ops["sz"]
+            builder += (-spec.bz, ops["sz"])
     else:
         raise ValueError(f"unsupported 1D family: {spec.family}")
+    return builder, h2, h1
 
-    builder = qtn.SpinHam1D(S=spec.spin, cyclic=spec.cyclic)
-    if h1 is not None:
-        builder += (spec.bz, ops["sz"])
-    if abs(spec.jxy) > 0.0:
-        builder += (spec.jxy, ops["sx"], ops["sx"])
-        builder += (spec.jxy, ops["sy"], ops["sy"])
-    if abs(spec.jz) > 0.0:
-        builder += (spec.jz, ops["sz"], ops["sz"])
+
+def build_uniform_1d_hamiltonians(spec) -> tuple[qtn.MatrixProductOperator, qtn.LocalHam1D]:
+    builder, h2, h1 = _build_spinham_1d_components(spec)
     mpo = builder.build_mpo(spec.lx)
     ham_local = qtn.LocalHam1D(spec.lx, H2=h2, H1=h1, cyclic=spec.cyclic)
     return mpo, ham_local
+
+
+def build_sparse_1d_hamiltonian(spec):
+    builder, _h2, _h1 = _build_spinham_1d_components(spec)
+    return builder.build_sparse(spec.lx)
 
 
 def build_2d_local_hamiltonian(spec):
@@ -147,6 +174,44 @@ def build_problem(model_name: str = MODEL_NAME) -> dict:
     else:
         raise ValueError(f"unsupported geometry: {spec.geometry}")
     return payload
+
+
+def _flatten_statevector(state_like) -> np.ndarray:
+    vector = np.asarray(state_like)
+    if vector.ndim == 2 and 1 in vector.shape:
+        vector = vector.reshape(-1)
+    return np.asarray(vector, dtype=np.complex128).reshape(-1)
+
+
+def dense_statevector_from_state(state) -> np.ndarray:
+    return _flatten_statevector(state.to_dense())
+
+
+def mutual_information_matrix_from_statevector(psi, dims: tuple[int, ...]) -> np.ndarray:
+    vector = _flatten_statevector(psi)
+    norm = float(np.linalg.norm(vector))
+    if norm <= 0.0:
+        raise ValueError("cannot compute mutual information for zero-norm state")
+    vector = vector / norm
+    nsites = len(dims)
+    matrix = np.zeros((nsites, nsites), dtype=np.float64)
+    for i in range(nsites):
+        for j in range(i + 1, nsites):
+            value = float(np.real(qu.mutinf_subsys(vector, dims=dims, sysa=i, sysb=j)))
+            matrix[i, j] = max(value, 0.0)
+            matrix[j, i] = matrix[i, j]
+    return matrix
+
+
+def maybe_mutual_information_matrix(problem: dict, state) -> list[list[float]] | None:
+    if problem["geometry"] != "1d" or problem["nsites"] > MUTUAL_INFO_MAX_SITES:
+        return None
+    phys_dim = int(2 * problem["spin"] + 1)
+    matrix = mutual_information_matrix_from_statevector(
+        dense_statevector_from_state(state),
+        dims=(phys_dim,) * problem["nsites"],
+    )
+    return matrix.tolist()
 
 
 def normalized(vector: np.ndarray) -> np.ndarray:
@@ -262,7 +327,7 @@ def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         history.append((sweep + 1, energy, int(solver.state.max_bond())))
 
     if not history:
-        energy = float(np.real(solver.energy))
+        energy = float(np.real((solver._b | solver.ham | solver._k) ^ all))
         history.append((1, energy, int(solver.state.max_bond())))
 
     first_step, first_energy, _ = history[0]
@@ -275,6 +340,7 @@ def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "wall_seconds": time.perf_counter() - start,
         "max_bond_realized": final_max_bond,
         "entropy_midchain": float(solver.state.entropy(problem["lx"] // 2)) if problem["geometry"] == "1d" else None,
+        "mutual_information_matrix": maybe_mutual_information_matrix(problem, solver.state),
         "history": history,
     }
 
@@ -317,6 +383,7 @@ def run_tebd1d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "wall_seconds": time.perf_counter() - start,
         "max_bond_realized": final_max_bond,
         "entropy_midchain": float(state.entropy(problem["lx"] // 2)),
+        "mutual_information_matrix": maybe_mutual_information_matrix(problem, state),
         "history": history,
     }
 
@@ -375,6 +442,7 @@ def run_tebd2d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "wall_seconds": time.perf_counter() - start,
         "max_bond_realized": final_max_bond,
         "entropy_midchain": None,
+        "mutual_information_matrix": None,
         "history": history,
     }
 

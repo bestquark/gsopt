@@ -8,6 +8,14 @@ Active benchmark directories:
 - `tfim_2d_4x4/`
 - `heisenberg_2d_4x4/`
 
+Additional 1D critical / MERA-motivated examples used by the mutual-information
+figure:
+
+- `heisenberg_xxx_16/`
+- `xxz_gapless_16/`
+- `tfim_critical_16/`
+- `xx_critical_16/`
+
 Each benchmark directory contains:
 
 - `initial_script.py`: editable method file
@@ -47,4 +55,10 @@ Figure:
 
 ```bash
 uv run python figs/tn/make_energy_figure.py
+```
+
+Mutual-information error overview for the 1D critical examples:
+
+```bash
+uv run python figs/tn/make_mutual_information_figure.py
 ```

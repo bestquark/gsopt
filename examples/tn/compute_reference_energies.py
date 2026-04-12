@@ -4,10 +4,14 @@ import argparse
 import json
 from pathlib import Path
 
-from model_registry import ACTIVE_MODELS
-from simple_tn import RunConfig, build_problem, run_config
+import numpy as np
+import quimb as qu
+
+from model_registry import ACTIVE_MODELS, MUTUAL_INFO_MODELS, MODEL_SPECS
+from simple_tn import RunConfig, build_problem, build_sparse_1d_hamiltonian, mutual_information_matrix_from_statevector, run_config
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "reference_energies.json"
+REFERENCE_MODELS = tuple(dict.fromkeys((*ACTIVE_MODELS, *MUTUAL_INFO_MODELS)))
 
 REFERENCE_CONFIGS = {
     "heisenberg_xxx_384": RunConfig(
@@ -91,7 +95,33 @@ REFERENCE_WALL_SECONDS = {
 }
 
 
+def compute_exact_reference(model: str) -> dict:
+    spec = MODEL_SPECS[model]
+    if spec.geometry != "1d":
+        raise ValueError(f"exact reference is only implemented for 1D models, got {model}")
+    h_sparse = build_sparse_1d_hamiltonian(spec)
+    ground_state = qu.groundstate(h_sparse)
+    energy = float(np.real((qu.dag(ground_state) @ (h_sparse @ ground_state))[0, 0]))
+    ground_state_vec = np.asarray(ground_state).reshape(-1)
+    phys_dim = int(2 * spec.spin + 1)
+    mutual_information = mutual_information_matrix_from_statevector(ground_state_vec, dims=(phys_dim,) * spec.nsites)
+    return {
+        "reference_energy": energy,
+        "reference_energy_per_site": energy / spec.nsites,
+        "nsites": spec.nsites,
+        "shape": [spec.lx, spec.ly],
+        "wall_seconds": None,
+        "max_bond_realized": None,
+        "history": [],
+        "config": {"method": "exact_sparse_groundstate"},
+        "reference_kind": "exact_sparse_groundstate",
+        "mutual_information_matrix": mutual_information.tolist(),
+    }
+
+
 def compute_reference(model: str) -> dict:
+    if model in MUTUAL_INFO_MODELS:
+        return compute_exact_reference(model)
     cfg = REFERENCE_CONFIGS[model]
     problem = build_problem(model)
     result = run_config(cfg, problem, wall_time_limit=REFERENCE_WALL_SECONDS[model])
@@ -104,15 +134,17 @@ def compute_reference(model: str) -> dict:
         "max_bond_realized": result["max_bond_realized"],
         "history": result["history"],
         "config": result["config"],
+        "reference_kind": "high_accuracy_run",
+        "mutual_information_matrix": result.get("mutual_information_matrix"),
     }
 
 
 def main():
     parser = argparse.ArgumentParser(description="Compute frozen high-accuracy TN reference energies.")
-    parser.add_argument("--model", choices=ACTIVE_MODELS)
+    parser.add_argument("--model", choices=REFERENCE_MODELS)
     args = parser.parse_args()
 
-    models = [args.model] if args.model else list(ACTIVE_MODELS)
+    models = [args.model] if args.model else list(REFERENCE_MODELS)
     existing = {}
     if OUTPUT_PATH.exists() and OUTPUT_PATH.read_text().strip():
         existing = json.loads(OUTPUT_PATH.read_text())

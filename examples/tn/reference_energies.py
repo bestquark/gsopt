@@ -25,3 +25,12 @@ def reference_energy(model: str) -> float | None:
         return None
     return float(entry["reference_energy"])
 
+
+def reference_mutual_information(model: str) -> list[list[float]] | None:
+    entry = reference_entry(model)
+    if entry is None:
+        return None
+    matrix = entry.get("mutual_information_matrix")
+    if matrix is None:
+        return None
+    return [[float(value) for value in row] for row in matrix]

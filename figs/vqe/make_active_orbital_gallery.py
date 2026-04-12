@@ -106,13 +106,6 @@ VQE_SPECS = (
         active_electrons=6,
         active_orbitals=4,
     ),
-    MoleculeSpec(
-        key="n2",
-        label_tex=r"$\mathrm{N_2}$",
-        geometry=(("N", (0.0, 0.0, 0.0)), ("N", (0.0, 0.0, 1.10))),
-        active_electrons=6,
-        active_orbitals=6,
-    ),
 )
 
 
@@ -358,12 +351,9 @@ def render_molecule_panel(subfig, spec: MoleculeSpec) -> None:
 def main() -> int:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     configure_style()
-    fig = plt.figure(figsize=(22.8, 11.4))
-    row_subfigs = fig.subfigures(3, 1, hspace=0.02)
-    top = row_subfigs[0].subfigures(1, 2, wspace=0.03)
-    middle = row_subfigs[1].subfigures(1, 2, wspace=0.03)
-    bottom = row_subfigs[2].subfigures(1, 1)
-    ordered_subfigs = [top[0], top[1], middle[0], middle[1], bottom]
+    fig = plt.figure(figsize=(22.8, 8.9))
+    grid = fig.subfigures(2, 2, wspace=0.03, hspace=0.04)
+    ordered_subfigs = [grid[0, 0], grid[0, 1], grid[1, 0], grid[1, 1]]
     for subfig, spec in zip(ordered_subfigs, VQE_SPECS):
         render_molecule_panel(subfig, spec)
     fig.savefig(OUTPUT_PDF, bbox_inches="tight")

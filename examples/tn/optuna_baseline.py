@@ -23,7 +23,7 @@ from benchkit.optuna_utils import (
     write_json,
 )
 from benchkit.trial_eval import run_trial_source
-from model_registry import ACTIVE_MODELS
+from model_registry import AVAILABLE_MODELS
 from reference_energies import reference_energy
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -143,7 +143,7 @@ def write_best_result(path: Path, study: optuna.Study):
 def main():
     parser = argparse.ArgumentParser(description="Run the Optuna TN baseline on a frozen model-specific script.")
     parser.add_argument("--script", help="Path to the model-specific initial_script.py file.")
-    parser.add_argument("--model", required=True, choices=ACTIVE_MODELS)
+    parser.add_argument("--model", required=True, choices=AVAILABLE_MODELS)
     parser.add_argument("--archive-root", help="Optional directory to store this Optuna run.")
     parser.add_argument("--wall-seconds", type=float, default=20.0)
     parser.add_argument("--trials", type=int, default=100, help="Target total number of archived Optuna trials.")

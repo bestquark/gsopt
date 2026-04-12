@@ -101,6 +101,19 @@ def _latest_run_dir(system: str) -> Path:
     runs = sorted(path for path in benchmark_dir.glob("run_*") if path.is_dir())
     if not runs:
         raise FileNotFoundError(f"no run_* directory found under {benchmark_dir}")
+    completed: list[Path] = []
+    for run_dir in runs:
+        status_path = run_dir / "status.json"
+        if not status_path.exists():
+            continue
+        try:
+            status = _read_json(status_path)
+        except json.JSONDecodeError:
+            continue
+        if status.get("done") is True:
+            completed.append(run_dir)
+    if completed:
+        return completed[-1]
     return runs[-1]
 
 

@@ -90,6 +90,19 @@ def _latest_run_dir(system: str) -> Path:
     runs = sorted(path for path in benchmark_dir.glob("run_*") if path.is_dir())
     if not runs:
         raise FileNotFoundError(f"no run_* directory found under {benchmark_dir}")
+    completed: list[Path] = []
+    for run_dir in runs:
+        status_path = run_dir / "status.json"
+        if not status_path.exists():
+            continue
+        try:
+            status = _read_json(status_path)
+        except json.JSONDecodeError:
+            continue
+        if status.get("done") is True:
+            completed.append(run_dir)
+    if completed:
+        return completed[-1]
     return runs[-1]
 
 
@@ -275,20 +288,22 @@ def main():
 
         x_min = min(baseline_x.min(), best_x.min())
         x_max = max(baseline_x.max(), best_x.max())
+        baseline_x_max = float(baseline_x.max())
+        best_x_max = float(best_x.max())
         if record.baseline_tail_start is not None:
             axis.axvspan(
                 max(record.baseline_tail_start, x_min),
-                x_max,
+                baseline_x_max,
                 color=INITIAL_EDGE,
-                alpha=0.08,
+                alpha=0.12,
                 zorder=0,
             )
         if record.best_tail_start is not None:
             axis.axvspan(
                 max(record.best_tail_start, x_min),
-                x_max,
+                best_x_max,
                 color=OPT_EDGE,
-                alpha=0.08,
+                alpha=0.12,
                 zorder=0,
             )
 
@@ -348,8 +363,8 @@ def main():
     legend_handles = [
         Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.0, label=r"Initial $\langle E(\tau)\rangle$"),
         Line2D([0], [0], color=OPT_EDGE, linewidth=3.2, label=r"Optimized $\langle E(\tau)\rangle$"),
-        Patch(facecolor=INITIAL_EDGE, alpha=0.08, label="Initial scored tail"),
-        Patch(facecolor=OPT_EDGE, alpha=0.08, label="Optimized scored tail"),
+        Patch(facecolor=INITIAL_EDGE, alpha=0.12, label="Initial post-equilibration region"),
+        Patch(facecolor=OPT_EDGE, alpha=0.12, label="Optimized post-equilibration region"),
         Patch(facecolor=CHEMICAL_ACCURACY_COLOR, alpha=0.22, label=r"$\pm 1$ kcal/mol"),
         Line2D([0], [0], color=REFERENCE_COLOR, linewidth=2.8, label=records[-1].reference_label),
     ]

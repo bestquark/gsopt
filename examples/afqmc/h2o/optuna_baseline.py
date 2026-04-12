@@ -17,6 +17,6 @@ if __name__ == "__main__":
             lane_script="examples/afqmc/optuna_baseline.py",
             source_filename="initial_script.py",
             label_flag="--system",
-            label_value="diamond_prim",
+            label_value="h2o",
         )
     )

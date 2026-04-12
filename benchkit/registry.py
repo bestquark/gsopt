@@ -114,7 +114,7 @@ TN_LANE = LaneSpec(
 
 AFQMC_LANE = LaneSpec(
     lane="afqmc",
-    benchmark_arg="system",
+    benchmark_arg="molecule",
     source_filename="initial_script.py",
     queue_script=None,
     restore_script=None,
@@ -124,9 +124,9 @@ AFQMC_LANE = LaneSpec(
     run_root_env=None,
     optuna_root_env="AUTORESEARCH_AFQMC_OPTUNA_ROOT",
     default_iterations=100,
-    default_wall_seconds=60.0,
-    objective_metric="final_energy",
-    objective_text="Lower the final periodic-cell energy after exactly 60 seconds without changing the system geometry or basis. Reference error is an offline comparison metric.",
+    default_wall_seconds=300.0,
+    objective_metric="final_energy_plus_2stderr",
+    objective_text="Lower the 5-minute molecular AFQMC risk-adjusted score E + 2*stderr without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
     support_files=("examples/afqmc/model_registry.py", "examples/afqmc/reference_energies.py"),
 )
 
@@ -192,7 +192,7 @@ def _load_afqmc_examples() -> list[ExampleSpec]:
             lane=AFQMC_LANE,
             example_key=system,
             benchmark_value=system,
-            display_name=f"{system} Periodic",
+            display_name=f"{system.upper()} Molecular AFQMC",
             source_template=f"examples/afqmc/{system}/initial_script.py",
             support_files=AFQMC_LANE.support_files,
         )

@@ -1,39 +1,52 @@
 # AFQMC
 
-The AFQMC lane uses compact periodic-electronic PySCF-PBC benchmarks with
-live periodic MP2 total energies and bootstrap `block_averaged_energies`,
-compared offline against frozen periodic references. The current in-repo
-deterministic reference is periodic CCSD(T), and the reference file is now
-structured so a future `ph-AFQMC` benchmark can be stored alongside it as a
-second offline reference.
-
-These offline reference builds are not wall-time capped. The stored
-`wall_seconds` fields are measured elapsed runtimes for the completed
-reference jobs, not optimization-time budgets.
+The AFQMC lane now uses four molecular PySCF + `ipie` benchmarks with live
+phaseless AFQMC evaluations and offline `CCSD(T)` references.
 
 Active benchmark directories:
 
-- `h8_cube_pbc/`
-- `h10_chain_pbc/`
-- `lih_cubic_pbc/`
-- `diamond_prim/`
+- `h2/`
+- `lih/`
+- `h2o/`
+- `n2/`
 
 Each benchmark directory contains:
 
-- `initial_script.py`: editable method file
+- `initial_script.py`: editable AFQMC method file
 - `evaluate.py`: fixed scorer entrypoint
 - `optuna_baseline.py`: separate internal baseline wrapper
 - `.gsopt.json`: benchmark metadata for the GSOpt runtime
 
-Lane-level shared files kept here:
+Lane-level shared files:
 
 - `model_registry.py`
-- `periodic_benchmark.py`
+- `molecular_benchmark.py`
 - `reference_energies.py`
 - `reference_energies.json`
 - `compute_reference_energies.py`
 - `update_reference_source.py`
 - `benchmark_evaluate.py`
+
+The live score is the post-equilibration risk-adjusted AFQMC objective:
+
+```text
+score = final_energy + 2 * block_energy_stderr
+```
+
+`CCSD(T)` error is an offline comparison metric only.
+
+## Cluster setup
+
+AFQMC evaluations are expected to run under an MPI launcher on the cluster.
+Set the launcher prefix once in the shell before running scored evaluations:
+
+```bash
+export AUTORESEARCH_AFQMC_MPI_LAUNCH="mpirun -n 12"
+```
+
+If your cluster uses `srun`, use the corresponding launch prefix instead.
+
+## References
 
 If `reference_energies.json` is missing or stale:
 
@@ -41,58 +54,62 @@ If `reference_energies.json` is missing or stale:
 uv run python examples/afqmc/compute_reference_energies.py
 ```
 
-If you compute an external offline benchmark later, such as a high-cost
-`ph-AFQMC` reference, merge it into the same file with:
+If you later compute an external offline benchmark, such as a higher-cost
+AFQMC production reference, merge it into the same file with:
 
 ```bash
 uv run python examples/afqmc/update_reference_source.py \
-  --system h8_cube_pbc \
+  --system n2 \
   --method-key ph_afqmc \
   --method-label "ph-AFQMC" \
-  --energy -3.123456789 \
+  --energy -107.623456789 \
   --stderr 0.00012 \
   --wall-seconds 1842 \
   --primary
 ```
 
-Smoke test:
+## Smoke test
 
 ```bash
-uv run python examples/afqmc/h8_cube_pbc/initial_script.py --wall-seconds 5
+AUTORESEARCH_AFQMC_MPI_LAUNCH="mpirun -n 12" \
+uv run python examples/afqmc/h2/evaluate.py --wall-seconds 300
 ```
 
-GSOpt workflow:
+## GSOpt workflow
 
 ```bash
-cd examples/afqmc/h8_cube_pbc
+cd examples/afqmc/h2
 codex
 ```
 
 ```text
-$gsopt Run 100 iterations in the current directory. Lower the 60-second final energy without changing the evaluator contract.
+$gsopt Run 100 iterations in the current directory. Lower the 5-minute AFQMC score E + 2*stderr without changing the evaluator contract.
 ```
 
 Claude Code may expose the same skill as:
 
 ```text
-/gsopt 100 . Lower the 60-second final energy without changing the evaluator contract.
+/gsopt 100 . Lower the 5-minute AFQMC score E + 2*stderr without changing the evaluator contract.
 ```
 
 Manual scaffolding fallback:
 
 ```bash
-cd examples/afqmc/h8_cube_pbc
-uv run gsopt 100 . "Lower the 60-second final energy."
+cd examples/afqmc/h2
+uv run gsopt 100 . "Lower the 5-minute AFQMC score E + 2*stderr."
 ```
 
 Benchmark-local Optuna baseline:
 
 ```bash
-uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 60 --trials 100
+AUTORESEARCH_AFQMC_MPI_LAUNCH="mpirun -n 12" \
+uv run python examples/afqmc/h2/optuna_baseline.py --wall-seconds 300 --trials 100
 ```
 
-Figure:
+Figures:
 
 ```bash
 uv run python figs/afqmc/make_energy_figure.py
+uv run python figs/afqmc/make_violin_energy_figure.py
+uv run python figs/afqmc/make_block_trace_figure.py
 ```

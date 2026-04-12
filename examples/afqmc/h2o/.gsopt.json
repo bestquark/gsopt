@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "lane": "afqmc",
+  "example_key": "h2o",
+  "benchmark_arg": "molecule",
+  "benchmark_value": "h2o",
+  "display_name": "H2O Molecular AFQMC",
+  "source_file": "initial_script.py",
+  "evaluator_file": "evaluate.py",
+  "source_template": "examples/afqmc/h2o/initial_script.py",
+  "queue_script": null,
+  "restore_script": null,
+  "plot_script": "figs/afqmc/make_energy_figure.py",
+  "optuna_script": "examples/afqmc/h2o/optuna_baseline.py",
+  "snapshot_env": "AUTORESEARCH_AFQMC_SNAPSHOT_ROOT",
+  "fig_dir_env": "AUTORESEARCH_AFQMC_FIG_DIR",
+  "run_root_env": null,
+  "optuna_root_env": "AUTORESEARCH_AFQMC_OPTUNA_ROOT",
+  "default_iterations": 100,
+  "default_wall_seconds": 300.0,
+  "objective_metric": "final_energy_plus_2stderr",
+  "objective_text": "Lower the 5-minute molecular AFQMC risk-adjusted score E + 2*stderr without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
+  "support_files": [
+    "examples/afqmc/model_registry.py",
+    "examples/afqmc/reference_energies.py"
+  ],
+  "benchmark_storage_name": "h2o"
+}

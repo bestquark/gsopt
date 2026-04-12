@@ -19,10 +19,10 @@ If you want the smallest agent-editable targets, prefer the benchmark-local meth
 - `examples/dmrg/tfim_longitudinal_256/simple_dmrg.py`
 - `examples/dmrg/spin1_heisenberg_64/simple_dmrg.py`
 - `examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py`
-- `examples/afqmc/h8_cube_pbc/initial_script.py`
-- `examples/afqmc/h10_chain_pbc/initial_script.py`
-- `examples/afqmc/lih_cubic_pbc/initial_script.py`
-- `examples/afqmc/diamond_prim/initial_script.py`
+- `examples/afqmc/h2/initial_script.py`
+- `examples/afqmc/lih/initial_script.py`
+- `examples/afqmc/h2o/initial_script.py`
+- `examples/afqmc/n2/initial_script.py`
 - `examples/gibbs/simple_gibbs_mcmc.py`
 
 ## Setup
@@ -46,7 +46,7 @@ Default mutation workflow:
 - VQE smoke: `uv run python examples/vqe/bh/simple_vqe.py --wall-seconds 5`
 - TN smoke: `uv run python examples/tn/heisenberg_xxx_384/initial_script.py --wall-seconds 5`
 - DMRG smoke: `uv run python examples/dmrg/heisenberg_xxx_384/simple_dmrg.py --wall-seconds 5`
-- AFQMC smoke: `uv run python examples/afqmc/h8_cube_pbc/initial_script.py --wall-seconds 5`
+- AFQMC smoke: `AUTORESEARCH_AFQMC_MPI_LAUNCH="mpirun -n 12" uv run python examples/afqmc/h2/evaluate.py --wall-seconds 300`
 - Gibbs: `uv run python examples/gibbs/search.py examples/gibbs/configs/tfim6.json`
 
 Figures:
@@ -67,9 +67,9 @@ Figures:
 - The active VQE benchmark is the fixed-budget five-molecule CUDA-Q suite: `BH`, `LiH`, `BeH2`, `H2O`, and `N2`.
 - The active TN benchmark is the fixed-budget five-model tensor-network suite: `heisenberg_xxx_384`, `xxz_gapless_256`, `spin1_heisenberg_64`, `tfim_2d_4x4`, and `heisenberg_2d_4x4`.
 - The active DMRG benchmark is the fixed-budget five-model DMRG suite: `heisenberg_xxx_384`, `xxz_gapless_256`, `tfim_longitudinal_256`, `spin1_heisenberg_64`, and `spin1_single_ion_critical_64`.
-- The active AFQMC benchmark is the fixed-budget four-system periodic-electronic suite: `h8_cube_pbc`, `h10_chain_pbc`, `lih_cubic_pbc`, and `diamond_prim`.
+- The active AFQMC benchmark is the fixed-budget four-molecule ipie suite: `h2`, `lih`, `h2o`, and `n2`.
 - For GSOpt runs, the agent should mutate the benchmark-local method file and treat `evaluate.py` as fixed scoring infrastructure.
-- Each scored benchmark evaluation uses the same 20-second wall-time budget within a lane unless the benchmark explicitly documents otherwise.
+- Each scored benchmark evaluation uses the same 20-second wall-time budget within a lane unless the benchmark explicitly documents otherwise. AFQMC is the exception: use the documented 300-second budget under an MPI launcher.
 - GSOpt owns iteration tracking, best-state restore, run-local logging, and the watchdog/campaign flow.
 - The Gibbs lane currently optimizes exact-reference quantum state approximation. `simple_gibbs_mcmc.py` is a separate classical Ising MCMC benchmark; do not conflate the two.
 - Historical snapshot archives are expected outside the tracked repo tree. Point plotting scripts at those archives with `AUTORESEARCH_*_SNAPSHOT_ROOT` when needed.

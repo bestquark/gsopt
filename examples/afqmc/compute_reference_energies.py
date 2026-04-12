@@ -8,10 +8,10 @@ from typing import Any
 
 try:
     from .model_registry import ACTIVE_SYSTEMS
-    from .periodic_benchmark import compute_reference_record
+    from .molecular_benchmark import compute_reference_record
 except ImportError:
     from model_registry import ACTIVE_SYSTEMS
-    from periodic_benchmark import compute_reference_record
+    from molecular_benchmark import compute_reference_record
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "reference_energies.json"
 
@@ -63,7 +63,7 @@ def _merge_reference_record(existing_record: dict[str, Any] | None, new_record: 
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compute unconstrained offline periodic electronic CCSD(T) reference energies.")
+    parser = argparse.ArgumentParser(description="Compute unconstrained offline molecular CCSD(T) reference energies.")
     parser.add_argument("--system", choices=ACTIVE_SYSTEMS)
     args = parser.parse_args()
 
@@ -71,18 +71,7 @@ def main():
     existing = {}
     if OUTPUT_PATH.exists() and OUTPUT_PATH.read_text().strip():
         existing = json.loads(OUTPUT_PATH.read_text())
-    # Keep non-AFQMC reference records, but drop retired periodic AFQMC entries.
-    existing = {
-        key: value
-        for key, value in existing.items()
-        if not (
-            isinstance(value, dict)
-            and value.get("basis") == "gth-szv"
-            and value.get("pseudo") == "gth-pade"
-            and (key.endswith("_pbc") or key == "diamond_prim")
-            and key not in ACTIVE_SYSTEMS
-        )
-    }
+    existing = {key: value for key, value in existing.items() if key in ACTIVE_SYSTEMS}
     for system in systems:
         print(f"computing reference for {system}...", flush=True)
         existing[system] = _merge_reference_record(existing.get(system), compute_reference_record(system))

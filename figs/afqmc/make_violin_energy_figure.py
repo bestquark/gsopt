@@ -84,10 +84,10 @@ def configure_style():
 
 def system_label_tex(system: str) -> str:
     mapping = {
-        "h8_cube_pbc": r"\ce{H8} cube supercell",
-        "h10_chain_pbc": r"\ce{H10} chain supercell",
-        "lih_cubic_pbc": r"\ce{LiH} cubic supercell",
-        "diamond_prim": r"Diamond primitive cell (\ce{C2})",
+        "h2": r"\ce{H2}",
+        "lih": r"\ce{LiH}",
+        "h2o": r"\ce{H2O}",
+        "n2": r"\ce{N2}",
     }
     return mapping.get(system, system.replace("_", r"\_"))
 
@@ -127,36 +127,10 @@ def _result_score(result: dict) -> float | None:
 
 
 def _extract_samples(result: dict) -> list[float]:
-    for key in ("block_averaged_energies", "walker_block_energies", "cycle_energies"):
+    for key in ("block_averaged_energies", "mixed_estimator_energies"):
         values = result.get(key)
         if isinstance(values, list) and values:
             return [float(value) for value in values]
-
-    stage_samples: list[float] = []
-    stages = result.get("stages")
-    if isinstance(stages, list):
-        for stage in stages:
-            if not isinstance(stage, dict):
-                continue
-            for key in ("block_averaged_energies", "walker_block_energies", "cycle_energies"):
-                values = stage.get(key)
-                if isinstance(values, list) and values:
-                    stage_samples.extend(float(value) for value in values)
-                    break
-            else:
-                if stage.get("final_energy") is not None:
-                    stage_samples.append(float(stage["final_energy"]))
-    if stage_samples:
-        return stage_samples
-
-    history = result.get("history")
-    if isinstance(history, list) and history:
-        samples: list[float] = []
-        for entry in history:
-            if isinstance(entry, (list, tuple)) and len(entry) >= 2:
-                samples.append(float(entry[1]))
-        if samples:
-            return samples
 
     final_energy = float(result["final_energy"])
     epsilon = max(1e-9, abs(final_energy) * 1e-9)

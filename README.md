@@ -92,8 +92,8 @@ python3 campaign.py --agent claude --model <model-name>
 Quickly inspect the mutation history for any run:
 
 ```bash
-uv run python show_gsopt_log.py examples/afqmc/h8_cube_pbc
-uv run python show_gsopt_log.py examples/afqmc/h8_cube_pbc/run_<timestamp>
+uv run python show_gsopt_log.py examples/afqmc/h2
+uv run python show_gsopt_log.py examples/afqmc/h2/run_<timestamp>
 ```
 
 Each benchmark directory follows the same local pattern:
@@ -103,7 +103,7 @@ Each benchmark directory follows the same local pattern:
 - `optuna_baseline.py` for the separate internal baseline
 - `.gsopt.json` describing the benchmark to the GSOpt runtime
 
-For VQE, AFQMC, and DMRG, the live GSOpt score is now the evaluator's `final_energy`.
+For VQE and DMRG, the live GSOpt score is the evaluator's `final_energy`. For AFQMC, the live score is the risk-adjusted objective `final_energy + 2 * block_energy_stderr`.
 Exact-energy error, excess energy, and chemical-accuracy comparisons are kept for offline figures and tables.
 
 If you use GSOpt on a non-repo benchmark, the directory only needs:
@@ -118,7 +118,7 @@ If GSOpt cannot infer either file, rerun with `--source <path>` and/or `--evalua
 - `examples/vqe/`: five molecule-local CUDA-Q VQE benchmarks
 - `examples/tn/`: five tensor-network ground-state benchmarks
 - `examples/dmrg/`: five model-local DMRG benchmarks
-- `examples/afqmc/`: four periodic-electronic PySCF-PBC benchmarks
+- `examples/afqmc/`: four molecular PySCF + ipie AFQMC benchmarks
 - `examples/gibbs/`: separate exact-reference Gibbs / MCMC experiments
 
 Representative editable targets:
@@ -138,10 +138,10 @@ Representative editable targets:
 - `examples/dmrg/tfim_longitudinal_256/simple_dmrg.py`
 - `examples/dmrg/spin1_heisenberg_64/simple_dmrg.py`
 - `examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py`
-- `examples/afqmc/h8_cube_pbc/initial_script.py`
-- `examples/afqmc/h10_chain_pbc/initial_script.py`
-- `examples/afqmc/lih_cubic_pbc/initial_script.py`
-- `examples/afqmc/diamond_prim/initial_script.py`
+- `examples/afqmc/h2/initial_script.py`
+- `examples/afqmc/lih/initial_script.py`
+- `examples/afqmc/h2o/initial_script.py`
+- `examples/afqmc/n2/initial_script.py`
 
 ## Internal Baselines
 
@@ -151,7 +151,7 @@ Optuna is separate from the GSOpt skill. Use the benchmark-local wrappers direct
 uv run python examples/vqe/bh/optuna_baseline.py --wall-seconds 20 --trials 100
 uv run python examples/tn/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
 uv run python examples/dmrg/heisenberg_xxx_384/optuna_baseline.py --wall-seconds 20 --trials 100
-uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/afqmc/h2/optuna_baseline.py --wall-seconds 300 --trials 100
 ```
 
 These create per-benchmark `optuna_run_<timestamp>/` archives.

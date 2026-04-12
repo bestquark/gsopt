@@ -14,6 +14,7 @@ import ast
 import hashlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -116,6 +117,14 @@ def _import_ipie_modules():
             "Run AFQMC evaluations on the configured cluster environment."
         ) from exc
     return AFQMC, extract_observable, gen_ipie_input_from_pyscf_chk
+
+
+def _try_import_mpi_comm():
+    try:
+        from mpi4py import MPI
+    except Exception:
+        return None
+    return MPI.COMM_WORLD
 
 
 def config_to_dict(cfg: RunConfig) -> dict:
@@ -296,45 +305,64 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
     mol = build_molecule(spec)
     build_wall = time.perf_counter() - total_start
 
+    comm = _try_import_mpi_comm()
+    rank = int(comm.Get_rank()) if comm is not None else 0
+    mpi_size = int(comm.Get_size()) if comm is not None else 1
     scratch_root = _scratch_root()
-    with tempfile.TemporaryDirectory(prefix=f".afqmc_ipie_{system_name}_", dir=scratch_root) as tmpdir:
-        workdir = Path(tmpdir)
+    temp_ctx = None
+    if mpi_size > 1:
+        root_workdir = Path(tempfile.mkdtemp(prefix=f".afqmc_ipie_{system_name}_", dir=scratch_root)) if rank == 0 else None
+        workdir = Path(comm.bcast(str(root_workdir) if root_workdir is not None else None, root=0))
+    else:
+        temp_ctx = tempfile.TemporaryDirectory(prefix=f".afqmc_ipie_{system_name}_", dir=scratch_root)
+        workdir = Path(temp_ctx.__enter__())
+    try:
         chk_file = workdir / "scf.chk"
         hamil_file = workdir / "hamiltonian.h5"
         wfn_file = workdir / "wavefunction.h5"
         estimator_file = workdir / "estimates.0.h5"
 
-        solver = build_solver(mol, cfg)
-        solver.chkfile = str(chk_file)
-        dm0 = solver.get_init_guess(key=cfg.init_guess)
+        scf_energy = None
+        scf_wall = 0.0
+        input_wall = 0.0
         cycle_energies: list[float] = []
-        previous_callback = getattr(solver, "callback", None)
+        scf_converged = False
+        scf_cycles = 0
+        if rank == 0:
+            solver = build_solver(mol, cfg)
+            solver.chkfile = str(chk_file)
+            dm0 = solver.get_init_guess(key=cfg.init_guess)
+            previous_callback = getattr(solver, "callback", None)
 
-        def _capture_cycle(envs):
-            energy = envs.get("e_tot")
-            if energy is not None:
-                cycle_energies.append(float(energy))
-            if previous_callback is not None:
-                previous_callback(envs)
+            def _capture_cycle(envs):
+                energy = envs.get("e_tot")
+                if energy is not None:
+                    cycle_energies.append(float(energy))
+                if previous_callback is not None:
+                    previous_callback(envs)
 
-        solver.callback = _capture_cycle
-        scf_start = time.perf_counter()
-        scf_energy = float(solver.kernel(dm0=dm0))
-        scf_wall = time.perf_counter() - scf_start
-        if not bool(getattr(solver, "converged", False)):
-            raise RuntimeError("SCF trial-state build did not converge")
-        if not cycle_energies or abs(cycle_energies[-1] - scf_energy) > 1e-12:
-            cycle_energies.append(scf_energy)
+            solver.callback = _capture_cycle
+            scf_start = time.perf_counter()
+            scf_energy = float(solver.kernel(dm0=dm0))
+            scf_wall = time.perf_counter() - scf_start
+            scf_converged = bool(getattr(solver, "converged", False))
+            scf_cycles = int(getattr(solver, "cycles", 0) or 0)
+            if not scf_converged:
+                raise RuntimeError("SCF trial-state build did not converge")
+            if not cycle_energies or abs(cycle_energies[-1] - scf_energy) > 1e-12:
+                cycle_energies.append(scf_energy)
 
-        input_start = time.perf_counter()
-        gen_ipie_input_from_pyscf_chk(
-            str(chk_file),
-            hamil_file=str(hamil_file),
-            wfn_file=str(wfn_file),
-            verbose=False,
-            chol_cut=cfg.chol_cut,
-        )
-        input_wall = time.perf_counter() - input_start
+            input_start = time.perf_counter()
+            gen_ipie_input_from_pyscf_chk(
+                str(chk_file),
+                hamil_file=str(hamil_file),
+                wfn_file=str(wfn_file),
+                verbose=False,
+                chol_cut=cfg.chol_cut,
+            )
+            input_wall = time.perf_counter() - input_start
+        if comm is not None:
+            comm.Barrier()
 
         afqmc_start = time.perf_counter()
         driver = AFQMC.build_from_hdf5(
@@ -353,6 +381,10 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
         driver.run(estimator_filename=str(estimator_file), verbose=False)
         driver.finalise(verbose=False)
         afqmc_wall = time.perf_counter() - afqmc_start
+        if comm is not None:
+            comm.Barrier()
+        if rank != 0:
+            return None
 
         if not estimator_file.exists():
             raise RuntimeError("ipie did not produce an estimator file")
@@ -422,12 +454,12 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
             "final_energy": final_energy,
             "final_error": final_error,
             "abs_final_error": abs_final_error,
-            "scf_converged": bool(getattr(solver, "converged", False)),
-            "scf_cycles": int(getattr(solver, "cycles", 0) or 0),
+            "scf_converged": scf_converged,
+            "scf_cycles": scf_cycles,
             "cycle_energies": cycle_energies,
             "num_walkers_per_rank": int(cfg.num_walkers_per_rank),
             "num_walkers_total": int(cfg.num_walkers_per_rank * driver.mpi_handler.size),
-            "mpi_size": int(driver.mpi_handler.size),
+            "mpi_size": mpi_size,
             "num_steps_per_block": int(cfg.num_steps_per_block),
             "num_blocks_requested": int(cfg.num_blocks),
             "timestep": float(cfg.timestep),
@@ -442,6 +474,14 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
             "wall_budget_seconds": wall_time_limit,
             "supported_systems": list(ACTIVE_SYSTEMS),
         }
+    finally:
+        if comm is not None:
+            comm.Barrier()
+        if mpi_size > 1:
+            if rank == 0:
+                shutil.rmtree(workdir, ignore_errors=True)
+        elif temp_ctx is not None:
+            temp_ctx.__exit__(None, None, None)
 
 
 def evaluate_source_file(source_file: Path, wall_time_limit: float) -> dict:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import shlex
@@ -18,6 +20,25 @@ REFERENCE_FIELDS = {
 }
 
 MPI_LAUNCH_ENV = "AUTORESEARCH_AFQMC_MPI_LAUNCH"
+
+
+def _load_json_from_stdout(stdout: str) -> dict:
+    payload = stdout.strip()
+    if not payload:
+        raise SystemExit("evaluation produced no stdout")
+    decoder = json.JSONDecoder()
+    for start in range(len(payload)):
+        if payload[start] != "{":
+            continue
+        try:
+            result, end = decoder.raw_decode(payload[start:])
+        except json.JSONDecodeError:
+            continue
+        if payload[start + end :].strip():
+            continue
+        if isinstance(result, dict):
+            return result
+    raise SystemExit("evaluation stdout was not valid JSON")
 
 
 def run_source_file(source_file: Path, wall_seconds: float, *, extra_env: dict[str, str] | None = None) -> dict:
@@ -50,12 +71,7 @@ def run_source_file(source_file: Path, wall_seconds: float, *, extra_env: dict[s
     stderr = proc.stderr.strip()
     if proc.returncode != 0:
         raise SystemExit(stderr or stdout or "evaluation failed")
-    if not stdout:
-        raise SystemExit("evaluation produced no stdout")
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"evaluation stdout was not valid JSON: {exc}") from exc
+    return _load_json_from_stdout(stdout)
 
 
 def main(*, default_source: str = "initial_script.py") -> int:
@@ -68,9 +84,13 @@ def main(*, default_source: str = "initial_script.py") -> int:
     source_file = Path(args.source_file).resolve() if args.source_file else resolve_source_file(Path(__file__).resolve(), default_source)
     if args.internal_direct:
         try:
-            result = evaluate_source_file(source_file, args.wall_seconds)
+            capture = io.StringIO()
+            with contextlib.redirect_stdout(capture):
+                result = evaluate_source_file(source_file, args.wall_seconds)
         except (RuntimeError, ValueError) as exc:
             raise SystemExit(str(exc)) from exc
+        if result is None:
+            return 0
     else:
         result = run_source_file(source_file, args.wall_seconds)
 

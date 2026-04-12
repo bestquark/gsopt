@@ -3,8 +3,8 @@ Molecular AFQMC benchmark for the AFQMC lane surface.
 
 This lane uses PySCF to build molecular Hamiltonians and trial wavefunctions,
 ipie to run real phaseless AFQMC, and offline CCSD(T) as the deterministic
-reference method. The live optimization target is a risk-adjusted score
-E + 2 * stderr computed from the final 40% tail of retained block energies.
+reference method. The live optimization target is a simple tail score
+mean_tail + std_tail computed from the final 40% of retained block energies.
 """
 
 from __future__ import annotations
@@ -61,8 +61,7 @@ MIN_FREQUENCY = 1
 MAX_FREQUENCY = 50
 MIN_PRODUCTION_BLOCKS = 10
 SCORING_TAIL_FRACTION = 0.4
-LIVE_OBJECTIVE_STDERR_WEIGHT = 2.0
-LIVE_OBJECTIVE_METRIC = "tail_mean_plus_2stderr"
+LIVE_OBJECTIVE_METRIC = "tail_mean_plus_std"
 REFERENCE_CCSD_CONV_TOL = 1e-10
 REFERENCE_CCSD_CONV_TOL_NORMT = 1e-8
 REFERENCE_CCSD_MAX_CYCLE = 256
@@ -259,8 +258,8 @@ def _afqmc_seed(system_name: str) -> int:
     return int.from_bytes(digest[:8], "big") % (2**31)
 
 
-def live_objective_score(final_energy: float, block_energy_stderr: float) -> float:
-    return float(final_energy + LIVE_OBJECTIVE_STDERR_WEIGHT * block_energy_stderr)
+def live_objective_score(final_energy: float, block_energy_std: float) -> float:
+    return float(final_energy + block_energy_std)
 
 
 def _energy_column(frame) -> str:
@@ -414,7 +413,7 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
         block_energy_std = float(np.std(production_energies, ddof=1))
         block_energy_stderr = block_energy_std / float(np.sqrt(len(production_energies)))
         final_energy = float(np.mean(production_energies))
-        score = live_objective_score(final_energy, block_energy_stderr)
+        score = live_objective_score(final_energy, block_energy_std)
         final_error = final_energy - target_energy
         abs_final_error = abs(final_error)
         total_wall = time.perf_counter() - total_start
@@ -436,7 +435,6 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
             "lower_is_better": True,
             "score": score,
             "risk_adjusted_energy": score,
-            "objective_stderr_weight": LIVE_OBJECTIVE_STDERR_WEIGHT,
             "scoring_tail_fraction": SCORING_TAIL_FRACTION,
             "reference_energy": target_energy,
             "sampling_method": "ipie_phaseless_afqmc_blocks",

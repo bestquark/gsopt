@@ -103,7 +103,7 @@ Each benchmark directory follows the same local pattern:
 - `optuna_baseline.py` for the separate internal baseline
 - `.gsopt.json` describing the benchmark to the GSOpt runtime
 
-For VQE and DMRG, the live GSOpt score is the evaluator's `final_energy`. For AFQMC, the live score is the risk-adjusted objective `mean_tail + 2 * stderr_tail`, computed from the final 40% of sampled AFQMC blocks.
+For VQE and DMRG, the live GSOpt score is the evaluator's `final_energy`. For AFQMC, the live score is the fixed-tail objective `mean_tail + std_tail`, computed from the final 40% of sampled AFQMC blocks.
 Exact-energy error, excess energy, and chemical-accuracy comparisons are kept for offline figures and tables.
 
 If you use GSOpt on a non-repo benchmark, the directory only needs:

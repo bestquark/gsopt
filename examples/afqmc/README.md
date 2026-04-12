@@ -27,11 +27,14 @@ Lane-level shared files:
 - `update_reference_source.py`
 - `benchmark_evaluate.py`
 
-The live score is the post-equilibration risk-adjusted AFQMC objective:
+The live score is the fixed-tail risk-adjusted AFQMC objective:
 
 ```text
-score = final_energy + 2 * block_energy_stderr
+score = mean_tail + 2 * stderr_tail
 ```
+
+where `mean_tail` and `stderr_tail` are computed from the final 40% of sampled
+AFQMC blocks.
 
 `CCSD(T)` error is an offline comparison metric only.
 
@@ -83,20 +86,20 @@ codex
 ```
 
 ```text
-$gsopt Run 100 iterations in the current directory. Lower the 5-minute AFQMC score E + 2*stderr without changing the evaluator contract.
+$gsopt Run 100 iterations in the current directory. Lower the 5-minute AFQMC score mean_tail + 2*stderr_tail over the last 40% of blocks without changing the evaluator contract.
 ```
 
 Claude Code may expose the same skill as:
 
 ```text
-/gsopt 100 . Lower the 5-minute AFQMC score E + 2*stderr without changing the evaluator contract.
+/gsopt 100 . Lower the 5-minute AFQMC score mean_tail + 2*stderr_tail over the last 40% of blocks without changing the evaluator contract.
 ```
 
 Manual scaffolding fallback:
 
 ```bash
 cd examples/afqmc/h2
-uv run gsopt 100 . "Lower the 5-minute AFQMC score E + 2*stderr."
+uv run gsopt 100 . "Lower the 5-minute AFQMC score mean_tail + 2*stderr_tail over the last 40% of blocks."
 ```
 
 Benchmark-local Optuna baseline:

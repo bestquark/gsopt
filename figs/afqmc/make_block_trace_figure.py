@@ -49,6 +49,8 @@ class TraceRecord:
     best_samples: tuple[float, ...]
     baseline_params: str
     best_params: str
+    baseline_tail_start: float | None
+    best_tail_start: float | None
 
 
 def configure_style():
@@ -133,6 +135,23 @@ def _extract_trace(result: dict) -> tuple[str, tuple[float, ...], tuple[float, .
     return ("Sample index", (1.0,), (final_energy,))
 
 
+def _tail_start(result: dict, x_label: str, x_values: tuple[float, ...]) -> float | None:
+    production_tau = result.get("production_tau_grid")
+    if x_label == r"$\tau$" and isinstance(production_tau, list) and production_tau:
+        return float(production_tau[0])
+
+    discarded_blocks = result.get("discarded_block_count", result.get("equilibration_block_count"))
+    if not isinstance(discarded_blocks, int) or discarded_blocks <= 0:
+        return None
+
+    if x_label == "Block sample index":
+        return float(discarded_blocks) + 0.5
+
+    if x_values and len(x_values) >= discarded_blocks:
+        return float(x_values[discarded_blocks - 1])
+    return None
+
+
 def _format_run_params(result: dict, title: str) -> str:
     config = result.get("config", {})
     timestep = config.get("timestep", result.get("timestep"))
@@ -198,6 +217,8 @@ def load_record(system: str) -> TraceRecord:
         best_samples=best_samples,
         baseline_params=_format_run_params(baseline_result, "Initial"),
         best_params=_format_run_params(best_result, "Optimized"),
+        baseline_tail_start=_tail_start(baseline_result, x_label, baseline_x),
+        best_tail_start=_tail_start(best_result, x_label, best_x),
     )
 
 
@@ -252,6 +273,25 @@ def main():
             zorder=4,
         )
 
+        x_min = min(baseline_x.min(), best_x.min())
+        x_max = max(baseline_x.max(), best_x.max())
+        if record.baseline_tail_start is not None:
+            axis.axvspan(
+                max(record.baseline_tail_start, x_min),
+                x_max,
+                color=INITIAL_EDGE,
+                alpha=0.08,
+                zorder=0,
+            )
+        if record.best_tail_start is not None:
+            axis.axvspan(
+                max(record.best_tail_start, x_min),
+                x_max,
+                color=OPT_EDGE,
+                alpha=0.08,
+                zorder=0,
+            )
+
         if record.reference_energy is not None:
             axis.axhspan(
                 record.reference_energy - CHEMICAL_ACCURACY_HA,
@@ -269,7 +309,7 @@ def main():
 
         axis.set_title(system_label_tex(record.system), pad=12)
         axis.set_xlabel(record.x_label)
-        axis.set_xlim(min(baseline_x.min(), best_x.min()), max(baseline_x.max(), best_x.max()))
+        axis.set_xlim(x_min, x_max)
         axis.text(
             0.03,
             0.04,
@@ -308,6 +348,8 @@ def main():
     legend_handles = [
         Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.0, label=r"Initial $\langle E(\tau)\rangle$"),
         Line2D([0], [0], color=OPT_EDGE, linewidth=3.2, label=r"Optimized $\langle E(\tau)\rangle$"),
+        Patch(facecolor=INITIAL_EDGE, alpha=0.08, label="Initial scored tail"),
+        Patch(facecolor=OPT_EDGE, alpha=0.08, label="Optimized scored tail"),
         Patch(facecolor=CHEMICAL_ACCURACY_COLOR, alpha=0.22, label=r"$\pm 1$ kcal/mol"),
         Line2D([0], [0], color=REFERENCE_COLOR, linewidth=2.8, label=records[-1].reference_label),
     ]

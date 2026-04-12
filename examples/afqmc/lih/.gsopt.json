@@ -18,8 +18,8 @@
   "optuna_root_env": "AUTORESEARCH_AFQMC_OPTUNA_ROOT",
   "default_iterations": 100,
   "default_wall_seconds": 300.0,
-  "objective_metric": "final_energy_plus_2stderr",
-  "objective_text": "Lower the 5-minute molecular AFQMC risk-adjusted score E + 2*stderr without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
+  "objective_metric": "tail_mean_plus_2stderr",
+  "objective_text": "Lower the 5-minute molecular AFQMC risk-adjusted score tail_mean + 2*stderr, where tail_mean and stderr are computed from the last 40% of sampled blocks, without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
   "support_files": [
     "examples/afqmc/model_registry.py",
     "examples/afqmc/reference_energies.py"

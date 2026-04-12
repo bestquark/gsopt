@@ -4,7 +4,7 @@ Molecular AFQMC benchmark for the AFQMC lane surface.
 This lane uses PySCF to build molecular Hamiltonians and trial wavefunctions,
 ipie to run real phaseless AFQMC, and offline CCSD(T) as the deterministic
 reference method. The live optimization target is a risk-adjusted score
-E + 2 * stderr computed from post-equilibration block energies.
+E + 2 * stderr computed from the final 40% tail of retained block energies.
 """
 
 from __future__ import annotations
@@ -59,10 +59,10 @@ MIN_WALKERS_PER_RANK = 8
 MAX_WALKERS_PER_RANK = 512
 MIN_FREQUENCY = 1
 MAX_FREQUENCY = 50
-MIN_EQUILIBRATION_BLOCKS = 5
 MIN_PRODUCTION_BLOCKS = 10
+SCORING_TAIL_FRACTION = 0.4
 LIVE_OBJECTIVE_STDERR_WEIGHT = 2.0
-LIVE_OBJECTIVE_METRIC = "final_energy_plus_2stderr"
+LIVE_OBJECTIVE_METRIC = "tail_mean_plus_2stderr"
 REFERENCE_CCSD_CONV_TOL = 1e-10
 REFERENCE_CCSD_CONV_TOL_NORMT = 1e-8
 REFERENCE_CCSD_MAX_CYCLE = 256
@@ -281,8 +281,9 @@ def _production_start(total_observed_blocks: int) -> int:
     if total_observed_blocks <= 1:
         raise RuntimeError("AFQMC estimator output did not contain propagated blocks")
     measured_blocks = total_observed_blocks - 1
-    equilibration = max(MIN_EQUILIBRATION_BLOCKS, int(np.ceil(0.2 * measured_blocks)))
-    return 1 + equilibration
+    tail_blocks = max(MIN_PRODUCTION_BLOCKS, int(np.ceil(SCORING_TAIL_FRACTION * measured_blocks)))
+    tail_blocks = min(tail_blocks, measured_blocks)
+    return 1 + max(0, measured_blocks - tail_blocks)
 
 
 def _scratch_root() -> Path | None:
@@ -436,6 +437,7 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
             "score": score,
             "risk_adjusted_energy": score,
             "objective_stderr_weight": LIVE_OBJECTIVE_STDERR_WEIGHT,
+            "scoring_tail_fraction": SCORING_TAIL_FRACTION,
             "reference_energy": target_energy,
             "sampling_method": "ipie_phaseless_afqmc_blocks",
             "seed": _afqmc_seed(system_name),
@@ -444,10 +446,14 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
             "mixed_estimator_energies": [float(value) for value in mixed_estimator_energies],
             "block_averaged_energies": [float(value) for value in production_energies],
             "equilibration_block_count": int(production_start),
+            "discarded_block_count": int(production_start),
+            "tail_start_tau": float(production_tau[0]),
             "block_count_total": int(len(mixed_estimator_energies)),
             "block_count": int(len(production_energies)),
             "block_energy_std": block_energy_std,
             "block_energy_stderr": block_energy_stderr,
+            "tail_energy_std": block_energy_std,
+            "tail_energy_stderr": block_energy_stderr,
             "walker_population": weight_trace,
             "trial_energy": scf_energy,
             "scf_energy": scf_energy,

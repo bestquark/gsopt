@@ -69,26 +69,26 @@ codex
 ```
 
 ```text
-$gsopt Run 100 iterations in the current directory. Lower the 20-second final energy without changing the evaluator contract.
+$gsopt Run 100 iterations in the current directory. Lower the 60-second final energy without changing the evaluator contract.
 ```
 
 Claude Code may expose the same skill as:
 
 ```text
-/gsopt 100 . Lower the 20-second final energy without changing the evaluator contract.
+/gsopt 100 . Lower the 60-second final energy without changing the evaluator contract.
 ```
 
 Manual scaffolding fallback:
 
 ```bash
 cd examples/afqmc/h8_cube_pbc
-uv run gsopt 100 . "Lower the 20-second final energy."
+uv run gsopt 100 . "Lower the 60-second final energy."
 ```
 
 Benchmark-local Optuna baseline:
 
 ```bash
-uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 20 --trials 100
+uv run python examples/afqmc/h8_cube_pbc/optuna_baseline.py --wall-seconds 60 --trials 100
 ```
 
 Figure:

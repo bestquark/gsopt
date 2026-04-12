@@ -99,7 +99,7 @@ def main():
     parser.add_argument("--script", help="Path to the periodic-system initial_script.py file.")
     parser.add_argument("--system", required=True, choices=ACTIVE_SYSTEMS)
     parser.add_argument("--archive-root", help="Optional directory to store this Optuna run.")
-    parser.add_argument("--wall-seconds", type=float, default=20.0)
+    parser.add_argument("--wall-seconds", type=float, default=60.0)
     parser.add_argument("--trials", type=int, default=100, help="Target total number of archived Optuna trials.")
     parser.add_argument("--max-parallel", type=int, default=1)
     parser.add_argument("--poll-seconds", type=float, default=5.0)

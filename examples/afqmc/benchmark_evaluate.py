@@ -18,7 +18,7 @@ REFERENCE_FIELDS = {
 
 def main(*, default_source: str = "initial_script.py") -> int:
     parser = argparse.ArgumentParser(description="Evaluate one periodic electronic benchmark source file.")
-    parser.add_argument("--wall-seconds", type=float, default=20.0)
+    parser.add_argument("--wall-seconds", type=float, default=60.0)
     parser.add_argument("--source-file", help=argparse.SUPPRESS)
     parser.add_argument("--internal-direct", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()

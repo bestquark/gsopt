@@ -235,13 +235,46 @@ def _bootstrap_seed(system_name: str) -> int:
     return int.from_bytes(digest[:8], "big") % (2**32)
 
 
-def _mp2_correlation_terms(mp2_solver, t2, eris) -> np.ndarray:
+def _rhf_mp2_correlation_terms(t2, eris) -> np.ndarray:
     if not hasattr(eris, "ovov"):
         raise ValueError("periodic MP2 eris object does not expose ovov integrals")
     nocc, nvir = t2.shape[1:3]
-    ovov = np.asarray(eris.ovov).reshape(nocc, nvir, nocc, nvir)
-    terms = (2.0 * t2 * ovov.transpose(0, 2, 1, 3) - t2 * ovov.transpose(0, 2, 3, 1)).real
+    ovov = np.asarray(eris.ovov).reshape(nocc, nvir, nocc, nvir).transpose(0, 2, 1, 3)
+    terms = (2.0 * t2 * ovov - t2 * ovov.swapaxes(2, 3)).real
     return terms.reshape(-1)
+
+
+def _uhf_mp2_correlation_terms(t2, eris) -> np.ndarray:
+    t2aa, t2ab, t2bb = (np.asarray(block) for block in t2)
+    terms: list[np.ndarray] = []
+
+    if t2aa.size:
+        nocca, _, nvira, _ = t2aa.shape
+        ovov = np.asarray(eris.ovov).reshape(nocca, nvira, nocca, nvira).transpose(0, 2, 1, 3)
+        aa_terms = (0.5 * t2aa * ovov - 0.5 * t2aa * ovov.swapaxes(2, 3)).real
+        terms.append(aa_terms.reshape(-1))
+
+    if t2ab.size:
+        nocca, noccb, nvira, nvirb = t2ab.shape
+        ovOV = np.asarray(eris.ovOV).reshape(nocca, nvira, noccb, nvirb).transpose(0, 2, 1, 3)
+        ab_terms = (t2ab * ovOV).real
+        terms.append(ab_terms.reshape(-1))
+
+    if t2bb.size:
+        noccb, _, nvirb, _ = t2bb.shape
+        OVOV = np.asarray(eris.OVOV).reshape(noccb, nvirb, noccb, nvirb).transpose(0, 2, 1, 3)
+        bb_terms = (0.5 * t2bb * OVOV - 0.5 * t2bb * OVOV.swapaxes(2, 3)).real
+        terms.append(bb_terms.reshape(-1))
+
+    if not terms:
+        return np.zeros(1, dtype=float)
+    return np.concatenate(terms)
+
+
+def _mp2_correlation_terms(mp2_solver, t2, eris) -> np.ndarray:
+    if isinstance(t2, tuple):
+        return _uhf_mp2_correlation_terms(t2, eris)
+    return _rhf_mp2_correlation_terms(np.asarray(t2), eris)
 
 
 def _bootstrap_block_averages(system_name: str, scf_energy: float, correlation_terms: np.ndarray) -> tuple[list[float], int]:
@@ -284,7 +317,7 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
     if not cycle_energies or abs(cycle_energies[-1] - scf_energy) > 1e-14:
         cycle_energies.append(scf_energy)
     mp2_start = time.perf_counter()
-    mp2_solver = pbc_mp.MP2(solver)
+    mp2_solver = pbc_mp.UMP2(solver) if cfg.trial == "uhf" else pbc_mp.MP2(solver)
     eris = mp2_solver.ao2mo()
     correlation_energy, t2 = mp2_solver.init_amps(eris=eris, with_t2=True)
     correlation_energy = float(correlation_energy)
@@ -309,6 +342,7 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
     if not np.all(np.isfinite(np.asarray(block_averaged_energies, dtype=float))):
         raise RuntimeError("block-averaged energies were not finite")
     block_energy_std = float(np.std(block_averaged_energies, ddof=1)) if len(block_averaged_energies) > 1 else 0.0
+    block_energy_stderr = block_energy_std / float(np.sqrt(len(block_averaged_energies))) if block_averaged_energies else 0.0
     final_error = final_energy - target_energy
     abs_final_error = abs(final_error)
     total_wall = time.perf_counter() - total_start
@@ -328,6 +362,7 @@ def run_config(cfg: RunConfig, system_name: str, wall_time_limit: float, target_
         "terms_per_block": terms_per_block,
         "correlation_term_count": int(correlation_terms.size),
         "block_energy_std": block_energy_std,
+        "block_energy_stderr": block_energy_stderr,
         "t2_max_abs": t2_max_abs,
         "reference_energy": target_energy,
         "scf_energy": scf_energy,
@@ -456,7 +491,7 @@ def compute_reference_record(system_name: str) -> dict:
 
 def run_cli(system_name: str, default_config: RunConfig) -> int:
     parser = argparse.ArgumentParser(description="Run the fixed periodic electronic benchmark.")
-    parser.add_argument("--wall-seconds", type=float, default=20.0)
+    parser.add_argument("--wall-seconds", type=float, default=60.0)
     args = parser.parse_args()
 
     target = reference_energy(system_name)

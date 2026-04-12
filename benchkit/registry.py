@@ -124,9 +124,9 @@ AFQMC_LANE = LaneSpec(
     run_root_env=None,
     optuna_root_env="AUTORESEARCH_AFQMC_OPTUNA_ROOT",
     default_iterations=100,
-    default_wall_seconds=20.0,
+    default_wall_seconds=60.0,
     objective_metric="final_energy",
-    objective_text="Lower the final periodic-cell energy after exactly 20 seconds without changing the system geometry or basis. Reference error is an offline comparison metric.",
+    objective_text="Lower the final periodic-cell energy after exactly 60 seconds without changing the system geometry or basis. Reference error is an offline comparison metric.",
     support_files=("examples/afqmc/model_registry.py", "examples/afqmc/reference_energies.py"),
 )
 

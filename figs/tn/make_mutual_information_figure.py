@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import matplotlib.colors as mcolors
@@ -17,6 +19,7 @@ if str(ROOT) not in sys.path:
 from plot_style import apply_style
 from examples.tn.model_registry import MUTUAL_INFO_MODELS, PRETTY_LABELS
 from examples.tn.reference_energies import reference_energy, reference_mutual_information
+from examples.tn.simple_tn import mutual_information_matrix_from_mps_state
 
 LANE_DIR = ROOT / "examples" / "tn"
 FIG_DIR = Path(os.environ.get("AUTORESEARCH_TN_FIG_DIR", Path(__file__).resolve().parent))
@@ -25,10 +28,10 @@ OUTPUT_PNG = FIG_DIR / "tn_mutual_information_error_overview.png"
 PLOT_ORDER = list(MUTUAL_INFO_MODELS)
 WALL_SECONDS = 20.0
 DISPLAY_TITLES = {
-    "heisenberg_xxx_16": r"Heisenberg XXX",
-    "xxz_gapless_16": r"Gapless XXZ",
-    "tfim_critical_16": r"Critical TFIM",
-    "xx_critical_16": r"Critical XX",
+    "heisenberg_xxx_64": r"Heisenberg XXX",
+    "xxz_gapless_64": r"Gapless XXZ",
+    "tfim_critical_64": r"Critical TFIM",
+    "xx_critical_64": r"Critical XX",
 }
 
 
@@ -137,7 +140,177 @@ def _run_modules_for_model(model: str):
 
 def _run_result(module, cfg) -> dict:
     problem = module.build_problem(module.MODEL_NAME)
-    return module.run_config(cfg, problem, wall_time_limit=WALL_SECONDS)
+
+    if hasattr(module, "run_strategy") and hasattr(module, "DEFAULT_STRATEGY"):
+        start = time.perf_counter()
+        state = None
+        history: list[tuple[int, float, int]] = []
+        phase_records: list[dict] = []
+        for phase in module.DEFAULT_STRATEGY["phases"]:
+            if (time.perf_counter() - start) >= WALL_SECONDS:
+                break
+            if phase["method"] in {"dmrg1", "dmrg2"}:
+                state, phase_history = module.run_dmrg_phase(
+                    phase,
+                    problem,
+                    state,
+                    start_time=start,
+                    wall_time_limit=WALL_SECONDS,
+                )
+            elif phase["method"] == "tebd1d":
+                state, phase_history = module.run_tebd_phase(
+                    phase,
+                    problem,
+                    state,
+                    start_time=start,
+                    wall_time_limit=WALL_SECONDS,
+                )
+            else:
+                raise ValueError(f"unsupported method {phase['method']!r}")
+            step_offset = len(history)
+            for step, (energy, max_bond) in enumerate(phase_history, start=1):
+                history.append((step_offset + step, energy, max_bond))
+            phase_records.append(
+                {
+                    "name": phase["name"],
+                    "method": phase["method"],
+                    "steps": len(phase_history),
+                    "final_energy": float(phase_history[-1][0]),
+                    "max_bond_realized": int(phase_history[-1][1]),
+                }
+            )
+        if not history:
+            raise RuntimeError("strategy produced no optimization history")
+        first_step, first_energy, _ = history[0]
+        last_step, final_energy, final_max_bond = history[-1]
+        result = {
+            "config": module.DEFAULT_STRATEGY,
+            "model": problem["name"],
+            "geometry": problem["geometry"],
+            "spin": problem["spin"],
+            "nsites": problem["nsites"],
+            "shape": [problem["lx"], problem["ly"]],
+            "cyclic": problem["cyclic"],
+            "wall_budget_seconds": WALL_SECONDS,
+            "iterations": last_step,
+            "final_energy": final_energy,
+            "energy_per_site": final_energy / problem["nsites"],
+            "energy_drop": first_energy - final_energy if first_step is not None else 0.0,
+            "wall_seconds": time.perf_counter() - start,
+            "max_bond_realized": final_max_bond,
+            "entropy_midchain": float(state.entropy(problem["lx"] // 2)) if state is not None else None,
+            "mutual_information_matrix": None,
+            "history": history,
+            "phase_records": phase_records,
+            "state_obj": None if state is None else state.copy(),
+        }
+    elif hasattr(module, "run_staged_dmrg") and hasattr(module, "run_dmrg_phase"):
+        start = time.perf_counter()
+        state = module.build_initial_mps(module.WARM_START_CONFIG, problem)
+        history: list[tuple[int, float, int]] = []
+        for phase_cfg in (module.WARM_START_CONFIG, cfg):
+            state, phase_history = module.run_dmrg_phase(
+                phase_cfg,
+                problem,
+                state,
+                start_time=start,
+                wall_time_limit=WALL_SECONDS,
+            )
+            offset = len(history)
+            history.extend((offset + step, energy, max_bond) for step, energy, max_bond in phase_history)
+        first_step, first_energy, _ = history[0]
+        last_step, final_energy, final_max_bond = history[-1]
+        result = {
+            "config": {
+                "name": "staged_dmrg1_then_dmrg2",
+                "phases": [module.config_to_dict(module.WARM_START_CONFIG), module.config_to_dict(cfg)],
+            },
+            "model": problem["name"],
+            "geometry": problem["geometry"],
+            "spin": problem["spin"],
+            "nsites": problem["nsites"],
+            "shape": [problem["lx"], problem["ly"]],
+            "cyclic": problem["cyclic"],
+            "wall_budget_seconds": WALL_SECONDS,
+            "iterations": last_step,
+            "final_energy": final_energy,
+            "energy_per_site": final_energy / problem["nsites"],
+            "energy_drop": first_energy - final_energy if first_step is not None else 0.0,
+            "wall_seconds": time.perf_counter() - start,
+            "max_bond_realized": final_max_bond,
+            "entropy_midchain": float(state.entropy(problem["lx"] // 2)),
+            "mutual_information_matrix": None,
+            "history": history,
+            "state_obj": state.copy(),
+        }
+    elif hasattr(module, "run_dmrg") and hasattr(module, "build_initial_mps") and hasattr(module, "qtn"):
+        solver_cls = {"dmrg1": module.qtn.DMRG1, "dmrg2": module.qtn.DMRG2}[cfg.method]
+        start = time.perf_counter()
+        p0 = module.build_initial_mps(cfg, problem)
+        solver = solver_cls(problem["mpo"], bond_dims=list(cfg.bond_schedule), cutoffs=cfg.cutoff, p0=p0)
+        solver.opts["local_eig_tol"] = cfg.solver_tol
+        solver.opts["local_eig_ncv"] = cfg.local_eig_ncv
+
+        history: list[tuple[int, float, int]] = []
+        previous_direction = None
+        for sweep in range(cfg.max_sweeps):
+            if (time.perf_counter() - start) >= WALL_SECONDS:
+                break
+            direction = "R" if sweep % 2 == 0 else "L"
+            max_bond = cfg.bond_schedule[min(sweep, len(cfg.bond_schedule) - 1)]
+            with module.warnings.catch_warnings():
+                module.warnings.simplefilter("ignore")
+                energy = solver.sweep(
+                    direction=direction,
+                    canonize=previous_direction in (None, direction),
+                    max_bond=max_bond,
+                    cutoff=cfg.cutoff,
+                    cutoff_mode=solver.opts["bond_compress_cutoff_mode"],
+                    method=solver.opts["bond_compress_method"],
+                    verbosity=0,
+                )
+            energy = float(module.np.real(energy))
+            solver.energies.append(energy)
+            history.append((sweep + 1, energy, int(solver.state.max_bond())))
+            previous_direction = direction
+
+        if not history:
+            energy = float(module.np.real((solver._b | solver.ham | solver._k) ^ all))
+            history.append((1, energy, int(solver.state.max_bond())))
+
+        first_step, first_energy, _ = history[0]
+        last_step, final_energy, final_max_bond = history[-1]
+        result = {
+            "config": module.config_to_dict(cfg),
+            "model": problem["name"],
+            "geometry": problem["geometry"],
+            "spin": problem["spin"],
+            "nsites": problem["nsites"],
+            "shape": [problem["lx"], problem["ly"]],
+            "cyclic": problem["cyclic"],
+            "wall_budget_seconds": WALL_SECONDS,
+            "iterations": last_step,
+            "final_energy": final_energy,
+            "energy_per_site": final_energy / problem["nsites"],
+            "energy_drop": first_energy - final_energy if first_step is not None else 0.0,
+            "wall_seconds": time.perf_counter() - start,
+            "max_bond_realized": final_max_bond,
+            "entropy_midchain": float(solver.state.entropy(problem["lx"] // 2)) if problem["geometry"] == "1d" else None,
+            "mutual_information_matrix": module.maybe_mutual_information_matrix(problem, solver.state),
+            "history": history,
+            "state_obj": solver.state.copy(),
+        }
+    else:
+        run_config_sig = inspect.signature(module.run_config)
+        kwargs = {"wall_time_limit": WALL_SECONDS}
+        if "return_state" in run_config_sig.parameters:
+            kwargs["return_state"] = True
+        result = module.run_config(cfg, problem, **kwargs)
+
+    state = result.pop("state_obj", None)
+    if result.get("mutual_information_matrix") is None and problem["geometry"] == "1d" and state is not None:
+        result["mutual_information_matrix"] = mutual_information_matrix_from_mps_state(state, problem["nsites"]).tolist()
+    return result
 
 
 def _error_matrix(result: dict, exact_matrix: np.ndarray) -> np.ndarray:
@@ -202,7 +375,9 @@ def main():
         baseline_cfg = getattr(baseline_module, "BASELINE_CONFIG", None)
         if baseline_cfg is None:
             raise RuntimeError(f"{model} is missing BASELINE_CONFIG")
-        optimized_cfg = optimized_module.DEFAULT_CONFIG
+        optimized_cfg = getattr(optimized_module, "DEFAULT_CONFIG", None)
+        if optimized_cfg is None and not hasattr(optimized_module, "DEFAULT_STRATEGY"):
+            raise RuntimeError(f"{model} is missing DEFAULT_CONFIG/DEFAULT_STRATEGY")
         exact_matrix = exact_matrices[model]
         baseline_result = _run_result(baseline_module, baseline_cfg)
         optimized_result = _run_result(optimized_module, optimized_cfg)
@@ -261,7 +436,7 @@ def main():
     fig.text(0.050, 0.74, "Initial", rotation=90, va="center", ha="center", fontsize=24)
     fig.text(0.050, 0.29, "Optimized", rotation=90, va="center", ha="center", fontsize=24)
     colorbar = fig.colorbar(image, ax=axes, fraction=0.026, pad=0.065)
-    colorbar.set_label(r"$|I_{\mathrm{TN}} - I_{\mathrm{exact}}|$", size=24)
+    colorbar.set_label(r"$|I_{\mathrm{TN}} - I_{\mathrm{ref}}|$", size=24)
     colorbar.ax.tick_params(labelsize=24)
     fig.subplots_adjust(left=0.11, right=0.85, bottom=0.12, top=0.90, wspace=0.20, hspace=0.05)
     fig.savefig(OUTPUT_PDF, bbox_inches="tight")

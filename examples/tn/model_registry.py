@@ -112,6 +112,45 @@ MODEL_SPECS = {
         ly=1,
         jxy=1.0,
     ),
+    "heisenberg_xxx_64": ModelSpec(
+        name="heisenberg_xxx_64",
+        geometry="1d",
+        family="heisenberg_xxx",
+        spin=0.5,
+        lx=64,
+        ly=1,
+        jxy=1.0,
+        jz=1.0,
+    ),
+    "xxz_gapless_64": ModelSpec(
+        name="xxz_gapless_64",
+        geometry="1d",
+        family="xxz",
+        spin=0.5,
+        lx=64,
+        ly=1,
+        jxy=1.0,
+        jz=0.5,
+    ),
+    "tfim_critical_64": ModelSpec(
+        name="tfim_critical_64",
+        geometry="1d",
+        family="tfim",
+        spin=0.5,
+        lx=64,
+        ly=1,
+        j=1.0,
+        bx=0.5,
+    ),
+    "xx_critical_64": ModelSpec(
+        name="xx_critical_64",
+        geometry="1d",
+        family="xx",
+        spin=0.5,
+        lx=64,
+        ly=1,
+        jxy=1.0,
+    ),
 }
 
 ACTIVE_MODELS = (
@@ -122,10 +161,10 @@ ACTIVE_MODELS = (
     "heisenberg_2d_4x4",
 )
 MUTUAL_INFO_MODELS = (
-    "heisenberg_xxx_16",
-    "xxz_gapless_16",
-    "tfim_critical_16",
-    "xx_critical_16",
+    "heisenberg_xxx_64",
+    "xxz_gapless_64",
+    "tfim_critical_64",
+    "xx_critical_64",
 )
 AVAILABLE_MODELS = tuple(MODEL_SPECS)
 
@@ -139,4 +178,8 @@ PRETTY_LABELS = {
     "xxz_gapless_16": r"Gapless XXZ, $L=16$",
     "tfim_critical_16": r"Critical TFIM, $L=16$",
     "xx_critical_16": r"Critical XX, $L=16$",
+    "heisenberg_xxx_64": r"Heisenberg XXX, $L=64$",
+    "xxz_gapless_64": r"Gapless XXZ, $L=64$",
+    "tfim_critical_64": r"Critical TFIM, $L=64$",
+    "xx_critical_64": r"Critical XX, $L=64$",
 }

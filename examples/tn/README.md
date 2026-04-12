@@ -11,10 +11,10 @@ Active benchmark directories:
 Additional 1D critical / MERA-motivated examples used by the mutual-information
 figure:
 
-- `heisenberg_xxx_16/`
-- `xxz_gapless_16/`
-- `tfim_critical_16/`
-- `xx_critical_16/`
+- `heisenberg_xxx_64/`
+- `xxz_gapless_64/`
+- `tfim_critical_64/`
+- `xx_critical_64/`
 
 Each benchmark directory contains:
 
@@ -60,5 +60,6 @@ uv run python figs/tn/make_energy_figure.py
 Mutual-information error overview for the 1D critical examples:
 
 ```bash
+uv run python examples/tn/compute_reference_energies.py --model heisenberg_xxx_64
 uv run python figs/tn/make_mutual_information_figure.py
 ```

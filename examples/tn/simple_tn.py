@@ -203,6 +203,48 @@ def mutual_information_matrix_from_statevector(psi, dims: tuple[int, ...]) -> np
     return matrix
 
 
+def von_neumann_entropy_from_density_matrix(rho: np.ndarray) -> float:
+    hermitian_rho = 0.5 * (rho + rho.conj().T)
+    evals = np.linalg.eigvalsh(hermitian_rho)
+    evals = np.clip(np.real(evals), 0.0, None)
+    total = float(evals.sum())
+    if total <= 0.0:
+        return 0.0
+    evals = evals / total
+    mask = evals > 1e-15
+    if not np.any(mask):
+        return 0.0
+    kept = evals[mask]
+    return float(-np.sum(kept * np.log2(kept)))
+
+
+def mutual_information_matrix_from_mps_state(state, nsites: int) -> np.ndarray:
+    if getattr(state, "cyclic", False):
+        raise NotImplementedError("mutual-information diagnostics currently require open boundary conditions")
+    working_state = state.copy()
+    info = {"cur_orthog": "calc"}
+    single_site_entropies = np.zeros(nsites, dtype=np.float64)
+    for i in range(nsites):
+        rho_i = np.asarray(
+            working_state.partial_trace_to_dense_canonical(i, info=info),
+            dtype=np.complex128,
+        )
+        single_site_entropies[i] = von_neumann_entropy_from_density_matrix(rho_i)
+
+    matrix = np.zeros((nsites, nsites), dtype=np.float64)
+    for i in range(nsites):
+        for j in range(i + 1, nsites):
+            rho_ij = np.asarray(
+                working_state.partial_trace_to_dense_canonical((i, j), info=info),
+                dtype=np.complex128,
+            )
+            pair_entropy = von_neumann_entropy_from_density_matrix(rho_ij)
+            value = single_site_entropies[i] + single_site_entropies[j] - pair_entropy
+            matrix[i, j] = max(float(value), 0.0)
+            matrix[j, i] = matrix[i, j]
+    return matrix
+
+
 def maybe_mutual_information_matrix(problem: dict, state) -> list[list[float]] | None:
     if problem["geometry"] != "1d" or problem["nsites"] > MUTUAL_INFO_MAX_SITES:
         return None
@@ -298,7 +340,7 @@ def build_initial_peps(cfg: RunConfig, problem: dict):
     return qtn.PEPS.product_state(site_map, cyclic=spec.cyclic)
 
 
-def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
+def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float, *, return_state: bool = False) -> dict:
     solver_cls = {"dmrg1": qtn.DMRG1, "dmrg2": qtn.DMRG2}[cfg.method]
     start = time.perf_counter()
     p0 = build_initial_mps(cfg, problem)
@@ -332,7 +374,7 @@ def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
 
     first_step, first_energy, _ = history[0]
     last_step, final_energy, final_max_bond = history[-1]
-    return {
+    payload = {
         "iterations": last_step,
         "final_energy": final_energy,
         "energy_per_site": final_energy / problem["nsites"],
@@ -343,9 +385,12 @@ def run_dmrg(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "mutual_information_matrix": maybe_mutual_information_matrix(problem, solver.state),
         "history": history,
     }
+    if return_state:
+        payload["state_obj"] = solver.state.copy()
+    return payload
 
 
-def run_tebd1d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
+def run_tebd1d(cfg: RunConfig, problem: dict, wall_time_limit: float, *, return_state: bool = False) -> dict:
     start = time.perf_counter()
     state = build_initial_mps(cfg, problem)
     ham_local = problem["ham_local"]
@@ -375,7 +420,7 @@ def run_tebd1d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
 
     first_step, first_energy, _ = history[0]
     last_step, final_energy, final_max_bond = history[-1]
-    return {
+    payload = {
         "iterations": last_step,
         "final_energy": final_energy,
         "energy_per_site": final_energy / problem["nsites"],
@@ -386,9 +431,12 @@ def run_tebd1d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "mutual_information_matrix": maybe_mutual_information_matrix(problem, state),
         "history": history,
     }
+    if return_state:
+        payload["state_obj"] = state.copy()
+    return payload
 
 
-def run_tebd2d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
+def run_tebd2d(cfg: RunConfig, problem: dict, wall_time_limit: float, *, return_state: bool = False) -> dict:
     start = time.perf_counter()
     state = build_initial_peps(cfg, problem)
     ham_local = problem["ham_local"]
@@ -434,7 +482,7 @@ def run_tebd2d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
 
     first_step, first_energy, _ = history[0]
     last_step, final_energy, final_max_bond = history[-1]
-    return {
+    payload = {
         "iterations": last_step,
         "final_energy": final_energy,
         "energy_per_site": final_energy / problem["nsites"],
@@ -445,22 +493,25 @@ def run_tebd2d(cfg: RunConfig, problem: dict, wall_time_limit: float) -> dict:
         "mutual_information_matrix": None,
         "history": history,
     }
+    if return_state:
+        payload["state_obj"] = state.copy()
+    return payload
 
 
-def run_config(cfg: RunConfig, problem: dict, wall_time_limit: float = 20.0) -> dict:
+def run_config(cfg: RunConfig, problem: dict, wall_time_limit: float = 20.0, *, return_state: bool = False) -> dict:
     geometry = problem["geometry"]
     if cfg.method in {"dmrg1", "dmrg2"}:
         if geometry != "1d":
             raise ValueError(f"method {cfg.method} only supports 1D models")
-        payload = run_dmrg(cfg, problem, wall_time_limit)
+        payload = run_dmrg(cfg, problem, wall_time_limit, return_state=return_state)
     elif cfg.method == "tebd1d":
         if geometry != "1d":
             raise ValueError("method tebd1d only supports 1D models")
-        payload = run_tebd1d(cfg, problem, wall_time_limit)
+        payload = run_tebd1d(cfg, problem, wall_time_limit, return_state=return_state)
     elif cfg.method == "tebd2d":
         if geometry != "2d":
             raise ValueError("method tebd2d only supports 2D models")
-        payload = run_tebd2d(cfg, problem, wall_time_limit)
+        payload = run_tebd2d(cfg, problem, wall_time_limit, return_state=return_state)
     else:
         raise ValueError(f"unsupported method: {cfg.method}")
 
@@ -478,7 +529,7 @@ def run_config(cfg: RunConfig, problem: dict, wall_time_limit: float = 20.0) -> 
 
 
 def compact_result(result: dict) -> dict:
-    return {key: value for key, value in result.items() if key != "history"}
+    return {key: value for key, value in result.items() if key not in {"history", "state_obj"}}
 
 
 def main():

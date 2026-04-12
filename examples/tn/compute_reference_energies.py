@@ -8,7 +8,14 @@ import numpy as np
 import quimb as qu
 
 from model_registry import ACTIVE_MODELS, MUTUAL_INFO_MODELS, MODEL_SPECS
-from simple_tn import RunConfig, build_problem, build_sparse_1d_hamiltonian, mutual_information_matrix_from_statevector, run_config
+from simple_tn import (
+    RunConfig,
+    build_problem,
+    build_sparse_1d_hamiltonian,
+    mutual_information_matrix_from_mps_state,
+    mutual_information_matrix_from_statevector,
+    run_config,
+)
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "reference_energies.json"
 REFERENCE_MODELS = tuple(dict.fromkeys((*ACTIVE_MODELS, *MUTUAL_INFO_MODELS)))
@@ -84,6 +91,62 @@ REFERENCE_CONFIGS = {
         init_seed=123,
         local_eig_ncv=8,
     ),
+    "heisenberg_xxx_64": RunConfig(
+        name="reference",
+        method="dmrg2",
+        init_state="neel",
+        bond_schedule=(32, 48, 64, 80, 96, 128, 160, 192, 224, 256, 320, 384),
+        cutoff=1e-14,
+        solver_tol=1e-11,
+        max_sweeps=72,
+        tau=0.05,
+        chi=64,
+        init_bond_dim=16,
+        init_seed=123,
+        local_eig_ncv=24,
+    ),
+    "xxz_gapless_64": RunConfig(
+        name="reference",
+        method="dmrg2",
+        init_state="neel",
+        bond_schedule=(32, 48, 64, 80, 96, 128, 160, 192, 224, 256, 320, 384),
+        cutoff=1e-14,
+        solver_tol=1e-11,
+        max_sweeps=72,
+        tau=0.05,
+        chi=64,
+        init_bond_dim=16,
+        init_seed=123,
+        local_eig_ncv=24,
+    ),
+    "tfim_critical_64": RunConfig(
+        name="reference",
+        method="dmrg2",
+        init_state="plus",
+        bond_schedule=(16, 24, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256),
+        cutoff=1e-14,
+        solver_tol=1e-11,
+        max_sweeps=64,
+        tau=0.05,
+        chi=64,
+        init_bond_dim=12,
+        init_seed=123,
+        local_eig_ncv=24,
+    ),
+    "xx_critical_64": RunConfig(
+        name="reference",
+        method="dmrg2",
+        init_state="neel",
+        bond_schedule=(24, 32, 48, 64, 80, 96, 128, 160, 192, 224, 256, 320),
+        cutoff=1e-14,
+        solver_tol=1e-11,
+        max_sweeps=64,
+        tau=0.05,
+        chi=64,
+        init_bond_dim=12,
+        init_seed=123,
+        local_eig_ncv=24,
+    ),
 }
 
 REFERENCE_WALL_SECONDS = {
@@ -92,6 +155,10 @@ REFERENCE_WALL_SECONDS = {
     "spin1_heisenberg_64": 420.0,
     "tfim_2d_4x4": 420.0,
     "heisenberg_2d_4x4": 600.0,
+    "heisenberg_xxx_64": 3600.0,
+    "xxz_gapless_64": 3600.0,
+    "tfim_critical_64": 2400.0,
+    "xx_critical_64": 2400.0,
 }
 
 
@@ -120,11 +187,16 @@ def compute_exact_reference(model: str) -> dict:
 
 
 def compute_reference(model: str) -> dict:
-    if model in MUTUAL_INFO_MODELS:
+    spec = MODEL_SPECS[model]
+    if spec.geometry == "1d" and spec.nsites <= 20:
         return compute_exact_reference(model)
     cfg = REFERENCE_CONFIGS[model]
     problem = build_problem(model)
-    result = run_config(cfg, problem, wall_time_limit=REFERENCE_WALL_SECONDS[model])
+    result = run_config(cfg, problem, wall_time_limit=REFERENCE_WALL_SECONDS[model], return_state=True)
+    state = result.pop("state_obj", None)
+    mutual_information = None
+    if spec.geometry == "1d" and state is not None:
+        mutual_information = mutual_information_matrix_from_mps_state(state, spec.nsites).tolist()
     return {
         "reference_energy": result["final_energy"],
         "reference_energy_per_site": result["energy_per_site"],
@@ -135,7 +207,7 @@ def compute_reference(model: str) -> dict:
         "history": result["history"],
         "config": result["config"],
         "reference_kind": "high_accuracy_run",
-        "mutual_information_matrix": result.get("mutual_information_matrix"),
+        "mutual_information_matrix": mutual_information,
     }
 
 
@@ -151,7 +223,7 @@ def main():
     for model in models:
         print(f"computing reference for {model}...", flush=True)
         existing[model] = compute_reference(model)
-    OUTPUT_PATH.write_text(json.dumps(existing, indent=2))
+        OUTPUT_PATH.write_text(json.dumps(existing, indent=2))
     print(json.dumps({"reference_file": str(OUTPUT_PATH), "models": models}, indent=2))
 
 

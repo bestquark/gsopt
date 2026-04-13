@@ -99,8 +99,8 @@ def _plot_trace_axis(axis, record: TraceRecord):
         axis.axvspan(
             max(record.baseline_tail_start, x_min),
             baseline_x_max,
-            color=INITIAL_EDGE,
-            alpha=0.12,
+            color=INITIAL_FILL,
+            alpha=0.30,
             zorder=0,
         )
         axis.hlines(
@@ -116,8 +116,8 @@ def _plot_trace_axis(axis, record: TraceRecord):
         axis.axvspan(
             max(record.best_tail_start, x_min),
             best_x_max,
-            color=OPT_EDGE,
-            alpha=0.12,
+            color=OPT_FILL,
+            alpha=0.30,
             zorder=0,
         )
         axis.hlines(
@@ -147,7 +147,7 @@ def _plot_trace_axis(axis, record: TraceRecord):
     axis.set_title(system_label_tex(record.system), pad=12)
     axis.set_xlabel(record.x_label)
     axis.set_xlim(x_min, x_max)
-    _add_param_box(axis, 0.31, 0.97, "Initial", record.baseline_params)
+    _add_param_box(axis, 0.37, 0.97, "Initial", record.baseline_params)
     _add_param_box(axis, 0.66, 0.97, "Optimized", record.best_params)
 
 
@@ -239,8 +239,8 @@ def main():
         Line2D([0], [0], color=OPT_EDGE, linewidth=3.4),
     )
     post_eq_handle = (
-        Patch(facecolor=INITIAL_EDGE, alpha=0.12, edgecolor="none"),
-        Patch(facecolor=OPT_EDGE, alpha=0.12, edgecolor="none"),
+        Patch(facecolor=INITIAL_FILL, alpha=0.30, edgecolor="none"),
+        Patch(facecolor=OPT_FILL, alpha=0.30, edgecolor="none"),
     )
     legend_handles = [
         Line2D([0], [0], color=INITIAL_EDGE, linewidth=1.5, marker="o", markersize=6, markerfacecolor=INITIAL_FILL, markeredgewidth=0, label=r"Initial $E(\tau)$"),
@@ -261,18 +261,20 @@ def main():
     fig.legend(
         handles=legend_handles,
         labels=legend_labels,
-        loc="center left",
-        bbox_to_anchor=(0.865, 0.50),
+        loc="upper center",
+        bbox_to_anchor=(0.50, 0.975),
         frameon=False,
         handler_map={tuple: HandlerTuple(ndivide=None, pad=0.0)},
-        alignment="left",
-        handlelength=2.4,
-        handletextpad=0.7,
-        labelspacing=0.7,
+        alignment="center",
+        ncol=6,
+        columnspacing=1.15,
+        handlelength=2.2,
+        handletextpad=0.55,
+        labelspacing=0.6,
     )
 
     fig.text(0.018, 0.50, r"Energy [Ha]", rotation=90, va="center", ha="center")
-    fig.subplots_adjust(left=0.07, right=0.86, bottom=0.10, top=0.90, wspace=0.33, hspace=0.20)
+    fig.subplots_adjust(left=0.07, right=0.985, bottom=0.10, top=0.84, wspace=0.33, hspace=0.20)
     fig.savefig(OUTPUT_PDF, bbox_inches="tight")
     fig.savefig(OUTPUT_PNG, dpi=220, bbox_inches="tight")
     plt.close(fig)

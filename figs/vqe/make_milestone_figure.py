@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,26 +17,43 @@ if str(ROOT) not in sys.path:
 from plot_style import apply_style, finish_axes
 from examples.vqe.reference_energies import reference_energy
 
-SNAPSHOT_ROOT = ROOT / "examples" / "vqe" / "snapshots"
+LEGACY_ARCHIVES = [
+    ROOT.parent / "autoresearch_legacy" / "gsopt_repo_archive_20260411_102814",
+    ROOT.parent / "autoresearch_legacy" / "gsopt_repo_archive_20260411_102759",
+]
+LEGACY_ROOT = next((path for path in LEGACY_ARCHIVES if path.exists()), None)
+if LEGACY_ROOT is None:
+    raise FileNotFoundError("could not locate autoresearch_legacy VQE archive")
+
+SNAPSHOT_ROOT = Path(
+    os.environ.get(
+        "AUTORESEARCH_VQE_MILESTONE_SNAPSHOT_ROOT",
+        LEGACY_ROOT / "examples" / "vqe" / "snapshots",
+    )
+)
 FIG_DIR = Path(__file__).resolve().parent
 OUTPUT_PDF = FIG_DIR / "vqe_energy_milestones.pdf"
 OUTPUT_PNG = FIG_DIR / "vqe_energy_milestones.png"
 OUTPUT_TSV = FIG_DIR / "vqe_energy_milestones.tsv"
 OUTPUT_MD = FIG_DIR / "vqe_energy_milestones.md"
-ORDER = ["bh", "lih", "beh2", "h2o", "n2"]
+ORDER = ["bh", "lih", "beh2", "h2o"]
 MOLECULE_NAMES = {
     "bh": "BH",
     "lih": "LiH",
     "beh2": "BeH2",
     "h2o": "H2O",
-    "n2": "N2",
 }
 MOLECULE_LEGEND = {
     "BH": r"$\mathrm{BH}$ -- CAS(2,3)",
     "LiH": r"$\mathrm{LiH}$ -- CAS(2,4)",
     "BeH2": r"$\mathrm{BeH_2}$ -- CAS(4,4)",
     "H2O": r"$\mathrm{H_2O}$ -- CAS(6,4)",
-    "N2": r"$\mathrm{N_2}$ -- CAS(6,6)",
+}
+MOLECULE_COLORS = {
+    "bh": "#b14f4f",
+    "lih": "#76B900",
+    "beh2": "#443983",
+    "h2o": "#2a788e",
 }
 CHEMICAL_ACCURACY = 1e-3
 DELTA_FLOOR = 1e-12
@@ -53,7 +71,6 @@ CALLOUT_LAYOUTS = {
     "lih": [((24, 24), 0.0), ((24, 24), 0.0)],
     "beh2": [((24, 24), 0.0), ((24, 24), 0.0)],
     "h2o": [((24, 24), 0.0), ((24, 24), 0.0)],
-    "n2": [((24, 24), 0.0), ((24, 24), 0.0)],
 }
 
 
@@ -206,7 +223,6 @@ def select_milestones(events: list[Improvement]) -> list[Improvement]:
 
 
 def plot(ax):
-    colors = plt.get_cmap("tab10")
     all_deltas: list[float] = []
     handles: list[Line2D] = []
     milestones: list[Improvement] = []
@@ -219,7 +235,7 @@ def plot(ax):
         xs, ys, running = running_best_points(stem, rows)
         if not xs:
             continue
-        color = colors(idx % 10)
+        color = MOLECULE_COLORS[stem]
 
         ax.scatter(xs, ys, s=26, color=color, alpha=0.14, zorder=1)
         ax.step(xs, running, where="post", color=color, linewidth=3.2, zorder=2)
@@ -232,7 +248,7 @@ def plot(ax):
         return []
 
     milestones.sort(key=lambda event: (ORDER.index(event.stem), event.iteration))
-    colors_by_stem = {stem: colors(idx % 10) for idx, stem in enumerate(ORDER)}
+    colors_by_stem = MOLECULE_COLORS
     seen_per_stem: dict[str, int] = {}
     for marker_id, event in enumerate(milestones, start=1):
         color = colors_by_stem[event.stem]

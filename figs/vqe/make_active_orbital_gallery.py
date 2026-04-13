@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import FancyBboxPatch
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from pyscf import gto, scf
@@ -32,6 +33,8 @@ GRID_EXPANSION_FACTOR = 1.35
 
 PHASE_POSITIVE = "#76B900"
 PHASE_NEGATIVE = "#b14f4f"
+PANEL_EDGE = "#c7d0db"
+PANEL_ROUNDING = 0.035
 
 ATOM_COLORS = {
     "H": "#f5f3ec",
@@ -317,18 +320,29 @@ def render_molecule_panel(subfig, spec: MoleculeSpec) -> None:
     symbols = [symbol for symbol, _coords in spec.geometry]
     active = active_indices(mol, spec)
     surfaces, atom_coords, bounds = orbital_surfaces(mol, mf, active)
-    subfig.patch.set_facecolor("#ffffff")
-    subfig.patch.set_edgecolor("#c7d0db")
-    subfig.patch.set_linewidth(1.45)
+    subfig.patch.set_alpha(0.0)
+    panel = FancyBboxPatch(
+        (0.018, 0.028),
+        0.964,
+        0.944,
+        boxstyle=rf"round,pad=0.008,rounding_size={PANEL_ROUNDING}",
+        transform=subfig.transSubfigure,
+        facecolor="#ffffff",
+        edgecolor=PANEL_EDGE,
+        linewidth=1.55,
+        clip_on=False,
+        zorder=-10,
+    )
+    subfig.add_artist(panel)
     axes = subfig.subplots(
         1,
         spec.active_orbitals,
         subplot_kw={"projection": "3d"},
         gridspec_kw={"wspace": 0.02},
     )
-    subfig.subplots_adjust(left=0.03, right=0.97, top=0.86, bottom=0.10, wspace=0.01)
+    subfig.subplots_adjust(left=0.055, right=0.945, top=0.845, bottom=0.115, wspace=0.01)
     axes_list = list(np.atleast_1d(axes))
-    subfig.suptitle(title_for(spec), y=0.98, fontsize=22)
+    subfig.suptitle(title_for(spec), y=0.955, fontsize=22)
     for ax, surface_data in zip(axes_list, surfaces):
         add_surface(ax, surface_data["negative"], PHASE_NEGATIVE)
         add_surface(ax, surface_data["positive"], PHASE_POSITIVE)
@@ -356,8 +370,8 @@ def main() -> int:
     ordered_subfigs = [grid[0, 0], grid[0, 1], grid[1, 0], grid[1, 1]]
     for subfig, spec in zip(ordered_subfigs, VQE_SPECS):
         render_molecule_panel(subfig, spec)
-    fig.savefig(OUTPUT_PDF, bbox_inches="tight", pad_inches=0.12)
-    fig.savefig(OUTPUT_PNG, dpi=260, bbox_inches="tight", pad_inches=0.12)
+    fig.savefig(OUTPUT_PDF, bbox_inches="tight", pad_inches=0.18)
+    fig.savefig(OUTPUT_PNG, dpi=260, bbox_inches="tight", pad_inches=0.18)
     plt.close(fig)
     print(json.dumps({"pdf": str(OUTPUT_PDF), "png": str(OUTPUT_PNG)}, indent=2))
     return 0

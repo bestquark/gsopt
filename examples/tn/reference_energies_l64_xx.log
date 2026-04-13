@@ -1,0 +1,8 @@
+starting standalone xx_critical_64 reference at 2026-04-12T21:56:33Z
+computing reference for xx_critical_64...
+{
+  "reference_file": "/Users/lmantilla/Desktop/Internship/gsopt/examples/tn/reference_energies.json",
+  "models": [
+    "xx_critical_64"
+  ]
+}

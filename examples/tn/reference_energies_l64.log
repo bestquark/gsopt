@@ -1,0 +1,37 @@
+starting L=64 TN references at 2026-04-12T21:34:19Z
+
+[2026-04-12T21:34:19Z] model=heisenberg_xxx_64
+computing reference for heisenberg_xxx_64...
+{
+  "reference_file": "/Users/lmantilla/Desktop/Internship/gsopt/examples/tn/reference_energies.json",
+  "models": [
+    "heisenberg_xxx_64"
+  ]
+}
+
+[2026-04-12T21:53:06Z] model=xxz_gapless_64
+computing reference for xxz_gapless_64...
+{
+  "reference_file": "/Users/lmantilla/Desktop/Internship/gsopt/examples/tn/reference_energies.json",
+  "models": [
+    "xxz_gapless_64"
+  ]
+}
+
+[2026-04-12T22:15:34Z] model=tfim_critical_64
+computing reference for tfim_critical_64...
+{
+  "reference_file": "/Users/lmantilla/Desktop/Internship/gsopt/examples/tn/reference_energies.json",
+  "models": [
+    "tfim_critical_64"
+  ]
+}
+
+[2026-04-12T22:15:50Z] model=xx_critical_64
+computing reference for xx_critical_64...
+{
+  "reference_file": "/Users/lmantilla/Desktop/Internship/gsopt/examples/tn/reference_energies.json",
+  "models": [
+    "xx_critical_64"
+  ]
+}

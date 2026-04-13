@@ -30,17 +30,17 @@ RUNS = [
         "stem": "h2o",
         "name": r"H$_2$O",
         "run_dir": ROOT / "examples" / "afqmc" / "h2o" / "run_20260412_200020",
-        "limit": 27,
+        "limit": None,
         "label": "tab:supp_afqmc_h2o",
-        "caption_target": r"H$_2$O rerun through iteration 27",
+        "caption_target": r"H$_2$O full 100-iteration campaign",
     },
     {
         "stem": "n2",
         "name": r"N$_2$",
         "run_dir": ROOT / "examples" / "afqmc" / "n2" / "run_20260412_204411",
-        "limit": 5,
-        "label": "tab:supp_afqmc_n2_v2",
-        "caption_target": r"N$_2$ v2 rerun through iteration 5",
+        "limit": None,
+        "label": "tab:supp_afqmc_n2",
+        "caption_target": r"N$_2$ full 100-iteration campaign",
     },
 ]
 

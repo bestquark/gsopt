@@ -124,7 +124,6 @@ def make_summary_table() -> str:
         r"\begin{table}[h]",
         r"\caption{Initial and best kept AFQMC protocols for the campaigns reported in the supplement.}",
         r"\label{tab:supp_afqmc_protocols}",
-        r"\footnotesize",
         r"\centering",
         r"\renewcommand{\arraystretch}{1.08}",
         r"\resizebox{\textwidth}{!}{%",

@@ -221,7 +221,6 @@ def make_summary_table() -> str:
         r"\begin{table}[h]",
         r"\caption{Initial and best archived VQE protocols for the four completed molecular campaigns used in the supplement.}",
         r"\label{tab:supp_vqe_protocols}",
-        r"\footnotesize",
         r"\centering",
         r"\renewcommand{\arraystretch}{1.08}",
         r"\resizebox{\textwidth}{!}{%",

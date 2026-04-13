@@ -184,7 +184,6 @@ def make_summary_table() -> str:
         r"\begin{table}[h]",
         r"\caption{Initial and best archived tensor-network protocols for the four completed $L=64$ critical-spin-chain campaigns used in the supplement.}",
         r"\label{tab:supp_tn_protocols}",
-        r"\footnotesize",
         r"\centering",
         r"\renewcommand{\arraystretch}{1.08}",
         r"\resizebox{\textwidth}{!}{%",

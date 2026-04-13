@@ -98,6 +98,9 @@ def _read_json(path: Path) -> dict:
 
 
 def _latest_run_dir(system: str) -> Path:
+    override = os.environ.get(f"AUTORESEARCH_AFQMC_RUN_OVERRIDE_{system.upper()}")
+    if override:
+        return Path(override).expanduser().resolve()
     benchmark_dir = LANE_DIR / system
     runs = sorted(path for path in benchmark_dir.glob("run_*") if path.is_dir())
     if not runs:

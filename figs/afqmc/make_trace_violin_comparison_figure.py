@@ -234,6 +234,10 @@ def main():
         violin_axis.set_title("")
         trace_axis.tick_params(labelbottom=True)
 
+    mean_handle = (
+        Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.2),
+        Line2D([0], [0], color=OPT_EDGE, linewidth=3.4),
+    )
     post_eq_handle = (
         Patch(facecolor=INITIAL_EDGE, alpha=0.12, edgecolor="none"),
         Patch(facecolor=OPT_EDGE, alpha=0.12, edgecolor="none"),
@@ -241,8 +245,7 @@ def main():
     legend_handles = [
         Line2D([0], [0], color=INITIAL_EDGE, linewidth=1.5, marker="o", markersize=6, markerfacecolor=INITIAL_FILL, markeredgewidth=0, label=r"Initial $E(\tau)$"),
         Line2D([0], [0], color=OPT_EDGE, linewidth=1.6, marker="o", markersize=6, markerfacecolor=OPT_FILL, markeredgewidth=0, label=r"Optimized $E(\tau)$"),
-        Line2D([0], [0], color=INITIAL_EDGE, linewidth=3.2, label=r"Initial $\langle E_0 \rangle$"),
-        Line2D([0], [0], color=OPT_EDGE, linewidth=3.4, label=r"Optimized $\langle E_0 \rangle$"),
+        mean_handle,
         post_eq_handle,
         Patch(facecolor=CHEMICAL_ACCURACY_COLOR, alpha=0.22, label=r"$\pm 1$ kcal/mol"),
         Line2D([0], [0], color=REFERENCE_COLOR, linewidth=2.8, label=trace_records[-1].reference_label),
@@ -250,8 +253,7 @@ def main():
     legend_labels = [
         r"Initial $E(\tau)$",
         r"Optimized $E(\tau)$",
-        r"Initial $\langle E_0 \rangle$",
-        r"Optimized $\langle E_0 \rangle$",
+        r"Estimated $\langle E_0 \rangle$",
         "Post-equilibration regions",
         r"$\pm 1$ kcal/mol",
         trace_records[-1].reference_label,

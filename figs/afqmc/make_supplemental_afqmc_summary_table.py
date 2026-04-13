@@ -11,8 +11,8 @@ SUMMARY_OUTPUT = PAPER_ROOT / "generated_afqmc_summary_table.tex"
 RUNS = {
     "h2": (ROOT / "examples" / "afqmc" / "h2" / "run_20260412_194332", None),
     "lih": (ROOT / "examples" / "afqmc" / "lih" / "run_20260412_194332", None),
-    "h2o": (ROOT / "examples" / "afqmc" / "h2o" / "run_20260412_200020", 27),
-    "n2": (ROOT / "examples" / "afqmc" / "n2" / "run_20260412_204411", 5),
+    "h2o": (ROOT / "examples" / "afqmc" / "h2o" / "run_20260412_200020", None),
+    "n2": (ROOT / "examples" / "afqmc" / "n2" / "run_20260412_204411", None),
 }
 ORDER = ["h2", "lih", "h2o", "n2"]
 MOLECULE_NAMES = {
@@ -116,16 +116,13 @@ def format_score(value: float | None) -> str:
 def stage_label(stem: str, row: dict[str, object], optimized: bool) -> str:
     if not optimized:
         return "Initial"
-    run_dir, limit = RUNS[stem]
-    if limit is None:
-        return rf"Optimized ({int(row['iteration'])})"
-    return rf"Optimized ({int(row['iteration'])}; log limit {limit})"
+    return rf"Optimized ({int(row['iteration'])})"
 
 
 def make_summary_table() -> str:
     lines = [
         r"\begin{table}[h]",
-        r"\caption{Initial and best kept AFQMC protocols for the campaigns reported in the supplement. H$_2$O uses the rerun through iteration 27 and N$_2$ uses the v2 rerun through iteration 5 so that Appendix~B3 and this summary refer to the same logged ranges.}",
+        r"\caption{Initial and best kept AFQMC protocols for the campaigns reported in the supplement.}",
         r"\label{tab:supp_afqmc_protocols}",
         r"\footnotesize",
         r"\centering",

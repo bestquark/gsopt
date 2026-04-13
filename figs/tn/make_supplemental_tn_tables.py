@@ -129,7 +129,7 @@ def summarize_method(cfg: dict[str, object]) -> str:
             rf"\texttt{{{tex_escape(str(phase.get('init_state', '---')))}}}"
             for phase in phases
         )
-        return methods + ", " + states + "."
+        return methods + "; init " + states + "."
     parts: list[str] = []
     method = cfg.get("method")
     if method:
@@ -139,10 +139,12 @@ def summarize_method(cfg: dict[str, object]) -> str:
         parts.append(rf"\texttt{{{tex_escape(str(init_state))}}}")
     init_bond_dim = cfg.get("init_bond_dim")
     if init_bond_dim not in (None, "", 0):
-        parts.append(rf"\texttt{{init\_bond\_dim}}={init_bond_dim}")
+        parts.append(rf"init bond {init_bond_dim}")
     if not parts:
         return r"---"
-    return ", ".join(parts) + "."
+    if len(parts) >= 2 and parts[1].startswith(r"\texttt{"):
+        return parts[0] + "; init " + ", ".join(parts[1:]) + "."
+    return "; ".join(parts) + "."
 
 
 def summarize_solver(cfg: dict[str, object]) -> str:
@@ -157,66 +159,79 @@ def summarize_solver(cfg: dict[str, object]) -> str:
             solver_tol = format_number(float(phase["solver_tol"])) if "solver_tol" in phase else "---"
             max_sweeps = int(phase["max_sweeps"]) if "max_sweeps" in phase else "---"
             summaries.append(
-                rf"{label} \texttt{{bond}}={bond_text}, \texttt{{cutoff}}={cutoff}, "
-                rf"\texttt{{solver\_tol}}={solver_tol}, \texttt{{max\_sweeps}}={max_sweeps}"
+                rf"{label}: bond {bond_text}; cutoff {cutoff}; tol {solver_tol}; sweeps {max_sweeps}"
             )
         return "; ".join(summaries[:2]) + "."
     parts: list[str] = []
     bond_schedule = cfg.get("bond_schedule")
     if isinstance(bond_schedule, list) and bond_schedule:
         bond_text = "-".join(str(int(value)) for value in bond_schedule)
-        parts.append(rf"\texttt{{bond}}={bond_text}")
+        parts.append(rf"bond {bond_text}")
     for key in ("cutoff", "solver_tol", "max_sweeps", "local_eig_ncv"):
         if key in cfg:
-            label = key.replace("_", r"\_")
+            label = {
+                "cutoff": "cutoff",
+                "solver_tol": "tol",
+                "max_sweeps": "sweeps",
+                "local_eig_ncv": "ncv",
+            }[key]
             value = cfg[key]
             if isinstance(value, (int, float)):
-                parts.append(rf"\texttt{{{label}}}={format_number(float(value))}")
+                parts.append(rf"{label} {format_number(float(value))}")
             else:
-                parts.append(rf"\texttt{{{label}}}={tex_escape(str(value))}")
+                parts.append(rf"{label} {tex_escape(str(value))}")
     if not parts:
         return r"---"
-    return ", ".join(parts[:5]) + "."
+    return "; ".join(parts[:5]) + "."
 
 
 def make_summary_table() -> str:
     lines = [
-        r"\begin{table}[h]",
-        r"\caption{Initial and best archived tensor-network protocols for the four completed $L=64$ critical-spin-chain campaigns used in the supplement.}",
+        r"\begin{table}[t]",
+        r"\caption{Archived baseline and best tensor-network protocols for the four completed $L=64$ critical-spin-chain campaigns. Each model is listed in two rows, with the winning iteration shown in parentheses.}",
         r"\label{tab:supp_tn_protocols}",
         r"\centering",
-        r"\renewcommand{\arraystretch}{1.08}",
-        r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l c l l c}",
+        r"\setlength{\tabcolsep}{4pt}",
+        r"\renewcommand{\arraystretch}{1.12}",
+        r"\begin{tabularx}{\textwidth}{L{0.20\textwidth} C{0.12\textwidth} Y Y C{0.12\textwidth}}",
         r"\toprule",
-        r"\textbf{Model} & \textbf{Stage} & \textbf{Method / Initial State} & \textbf{Bond and Solver Settings} & \textbf{Final Energy} \\",
+        r"\textbf{Model} & \textbf{Protocol} & \textbf{Method / Initial State} & \textbf{Bond and Solver Settings} & \textbf{Final Energy} \\",
         r"\midrule",
     ]
-    for stem in ORDER:
+    for idx, stem in enumerate(ORDER):
         rows = read_rows(stem)
         baseline = rows[0]
         best = best_row(rows)
-        for stage, row in (
-            ("Initial", baseline),
-            (rf"Optimized ({int(best['iteration'])})", best),
-        ):
-            cfg = row["config"]
-            lines.append(
-                " & ".join(
-                    [
-                        MODEL_NAMES[stem],
-                        stage,
-                        summarize_method(cfg),
-                        summarize_solver(cfg),
-                        format_score(row["score"]),
-                    ]
-                )
-                + r" \\"
+        lines.append(
+            " & ".join(
+                [
+                    rf"\multirow{{2}}{{=}}{{{MODEL_NAMES[stem]}}}",
+                    "Initial",
+                    summarize_method(baseline["config"]),
+                    summarize_solver(baseline["config"]),
+                    format_score(baseline["score"]),
+                ]
             )
+            + r" \\"
+        )
+        lines.append(
+            " & ".join(
+                [
+                    "",
+                    rf"Best ({int(best['iteration'])})",
+                    summarize_method(best["config"]),
+                    summarize_solver(best["config"]),
+                    format_score(best["score"]),
+                ]
+            )
+            + r" \\"
+        )
+        if idx != len(ORDER) - 1:
+            lines.append(r"\midrule")
     lines.extend(
         [
             r"\bottomrule",
-            r"\end{tabular}}",
+            r"\end{tabularx}",
             r"\end{table}",
         ]
     )

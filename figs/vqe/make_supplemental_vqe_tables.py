@@ -193,7 +193,7 @@ def summarize_ansatz(cfg: dict[str, object]) -> str:
         parts.append(rf"warm start $n={len(initial_parameters)}$")
     if not parts:
         return r"---"
-    return ", ".join(parts) + "."
+    return "; ".join(parts) + "."
 
 
 def summarize_optimizer(cfg: dict[str, object]) -> str:
@@ -202,58 +202,69 @@ def summarize_optimizer(cfg: dict[str, object]) -> str:
     if optimizer:
         parts.append(rf"\texttt{{{tex_escape(str(optimizer))}}}")
     if "max_steps" in cfg:
-        parts.append(rf"\texttt{{max\_steps}}={cfg['max_steps']}")
+        parts.append(rf"steps {cfg['max_steps']}")
     if "init_scale" in cfg:
-        parts.append(rf"\texttt{{init\_scale}}={format_number(cfg['init_scale'])}")
+        parts.append(rf"init scale {format_number(cfg['init_scale'])}")
     if "seed" in cfg:
         parts.append(rf"seed {cfg['seed']}")
     if optimizer == "cobyla" and "cobyla_rhobeg" in cfg:
-        parts.append(rf"\texttt{{rhobeg}}={format_number(cfg['cobyla_rhobeg'])}")
+        parts.append(rf"rhobeg {format_number(cfg['cobyla_rhobeg'])}")
     if optimizer == "powell" and "powell_xtol" in cfg:
-        parts.append(rf"\texttt{{xtol}}={format_number(cfg['powell_xtol'])}")
+        parts.append(rf"xtol {format_number(cfg['powell_xtol'])}")
     if not parts:
         return r"---"
-    return ", ".join(parts[:5]) + "."
+    return "; ".join(parts[:5]) + "."
 
 
 def make_summary_table() -> str:
     lines = [
-        r"\begin{table}[h]",
-        r"\caption{Initial and best archived VQE protocols for the four completed molecular campaigns used in the supplement.}",
+        r"\begin{table}[t]",
+        r"\caption{Archived baseline and best VQE protocols for the four completed molecular campaigns. Each molecule is listed in two rows, with the winning iteration shown in parentheses.}",
         r"\label{tab:supp_vqe_protocols}",
         r"\centering",
-        r"\renewcommand{\arraystretch}{1.08}",
-        r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l c l l c}",
+        r"\setlength{\tabcolsep}{4pt}",
+        r"\renewcommand{\arraystretch}{1.12}",
+        r"\begin{tabularx}{\textwidth}{L{0.14\textwidth} C{0.12\textwidth} Y Y C{0.13\textwidth}}",
         r"\toprule",
-        r"\textbf{Molecule} & \textbf{Stage} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{$|\Delta E|$ [Ha]} \\",
+        r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{Final $|\Delta E|$ [Ha]} \\",
         r"\midrule",
     ]
-    for stem in ORDER:
+    for idx, stem in enumerate(ORDER):
         rows = read_rows(stem)
         baseline = rows[0]
         best = best_row(rows)
-        for stage, row in (
-            ("Initial", baseline),
-            (rf"Optimized ({int(best['iteration'])})", best),
-        ):
-            cfg = config_for_iteration(stem, int(row["iteration"]))
-            lines.append(
-                " & ".join(
-                    [
-                        MOLECULE_NAMES[stem],
-                        stage,
-                        summarize_ansatz(cfg),
-                        summarize_optimizer(cfg),
-                        format_error(row_error(row)),
-                    ]
-                )
-                + r" \\"
+        baseline_cfg = config_for_iteration(stem, int(baseline["iteration"]))
+        best_cfg = config_for_iteration(stem, int(best["iteration"]))
+        lines.append(
+            " & ".join(
+                [
+                    rf"\multirow{{2}}{{=}}{{{MOLECULE_NAMES[stem]}}}",
+                    "Initial",
+                    summarize_ansatz(baseline_cfg),
+                    summarize_optimizer(baseline_cfg),
+                    format_error(row_error(baseline)),
+                ]
             )
+            + r" \\"
+        )
+        lines.append(
+            " & ".join(
+                [
+                    "",
+                    rf"Best ({int(best['iteration'])})",
+                    summarize_ansatz(best_cfg),
+                    summarize_optimizer(best_cfg),
+                    format_error(row_error(best)),
+                ]
+            )
+            + r" \\"
+        )
+        if idx != len(ORDER) - 1:
+            lines.append(r"\midrule")
     lines.extend(
         [
             r"\bottomrule",
-            r"\end{tabular}}",
+            r"\end{tabularx}",
             r"\end{table}",
         ]
     )

@@ -81,13 +81,16 @@ def summarize_trial(cfg: dict[str, object]) -> str:
     trial = cfg.get("trial")
     if trial:
         parts.append(rf"\texttt{{{tex_escape(str(trial))}}}")
-    for key in ("scf_conv_tol", "scf_max_cycle", "diis_space"):
+    for key, label in (
+        ("scf_conv_tol", "scf tol"),
+        ("scf_max_cycle", "max cycle"),
+        ("diis_space", "diis"),
+    ):
         if key in cfg:
-            key_tex = key.replace("_", r"\_")
-            parts.append(rf"\texttt{{{key_tex}}}={format_number(float(cfg[key]))}")
+            parts.append(rf"{label} {format_number(float(cfg[key]))}")
     if not parts:
         return r"---"
-    return ", ".join(parts[:4]) + "."
+    return "; ".join(parts[:4]) + "."
 
 
 def summarize_propagation(cfg: dict[str, object]) -> str:
@@ -95,16 +98,16 @@ def summarize_propagation(cfg: dict[str, object]) -> str:
     if "num_walkers_per_rank" in cfg:
         parts.append(rf"{int(cfg['num_walkers_per_rank'])} walkers/rank")
     if "num_steps_per_block" in cfg and "num_blocks" in cfg:
-        parts.append(rf"{int(cfg['num_steps_per_block'])} steps $\times$ {int(cfg['num_blocks'])} blocks")
+        parts.append(rf"$B={int(cfg['num_steps_per_block'])}\times {int(cfg['num_blocks'])}$")
     if "timestep" in cfg:
         parts.append(rf"$\Delta\tau={format_number(float(cfg['timestep']))}$")
     if "chol_cut" in cfg:
-        parts.append(rf"\texttt{{chol\_cut}}={format_number(float(cfg['chol_cut']))}")
+        parts.append(rf"chol cut {format_number(float(cfg['chol_cut']))}")
     if "stabilize_freq" in cfg and "pop_control_freq" in cfg:
-        parts.append(rf"stab/pop {int(cfg['stabilize_freq'])}/{int(cfg['pop_control_freq'])}")
+        parts.append(rf"$s/p={int(cfg['stabilize_freq'])}/{int(cfg['pop_control_freq'])}$")
     if not parts:
         return r"---"
-    return ", ".join(parts[:5]) + "."
+    return "; ".join(parts[:5]) + "."
 
 
 def format_score(value: float | None) -> str:
@@ -121,39 +124,51 @@ def stage_label(stem: str, row: dict[str, object], optimized: bool) -> str:
 
 def make_summary_table() -> str:
     lines = [
-        r"\begin{table}[h]",
-        r"\caption{Initial and best kept AFQMC protocols for the campaigns reported in the supplement.}",
+        r"\begin{table}[t]",
+        r"\caption{Archived baseline and best kept AFQMC protocols for the molecular campaigns reported in the supplement. Each molecule is listed in two rows, with the winning iteration shown in parentheses.}",
         r"\label{tab:supp_afqmc_protocols}",
         r"\centering",
-        r"\renewcommand{\arraystretch}{1.08}",
-        r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{l c l l c}",
+        r"\setlength{\tabcolsep}{4pt}",
+        r"\renewcommand{\arraystretch}{1.12}",
+        r"\begin{tabularx}{\textwidth}{L{0.14\textwidth} C{0.12\textwidth} Y Y C{0.12\textwidth}}",
         r"\toprule",
-        r"\textbf{Molecule} & \textbf{Stage} & \textbf{Trial / SCF Settings} & \textbf{Walker and Propagation Settings} & \textbf{Score} \\",
+        r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Trial / SCF Settings} & \textbf{Walker and Propagation Settings} & \textbf{Live Score} \\",
         r"\midrule",
     ]
-    for stem in ORDER:
+    for idx, stem in enumerate(ORDER):
         rows = read_rows(stem)
         baseline = rows[0]
         best = best_row(rows)
-        for optimized, row in ((False, baseline), (True, best)):
-            cfg = row["config"]
-            lines.append(
-                " & ".join(
-                    [
-                        MOLECULE_NAMES[stem],
-                        stage_label(stem, row, optimized),
-                        summarize_trial(cfg),
-                        summarize_propagation(cfg),
-                        format_score(row["score"]),
-                    ]
-                )
-                + r" \\"
+        lines.append(
+            " & ".join(
+                [
+                    rf"\multirow{{2}}{{=}}{{{MOLECULE_NAMES[stem]}}}",
+                    "Initial",
+                    summarize_trial(baseline["config"]),
+                    summarize_propagation(baseline["config"]),
+                    format_score(baseline["score"]),
+                ]
             )
+            + r" \\"
+        )
+        lines.append(
+            " & ".join(
+                [
+                    "",
+                    rf"Best ({int(best['iteration'])})",
+                    summarize_trial(best["config"]),
+                    summarize_propagation(best["config"]),
+                    format_score(best["score"]),
+                ]
+            )
+            + r" \\"
+        )
+        if idx != len(ORDER) - 1:
+            lines.append(r"\midrule")
     lines.extend(
         [
             r"\bottomrule",
-            r"\end{tabular}}",
+            r"\end{tabularx}",
             r"\end{table}",
         ]
     )

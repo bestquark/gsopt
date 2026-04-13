@@ -30,13 +30,13 @@ MODEL_NAMES = {
 CHECK_MARK = r"\raisebox{0.08ex}{\ding{51}}"
 CROSS_MARK = r"\raisebox{0.08ex}{\ding{55}}"
 LOG_WIDTHS = [
-    "0.055\\linewidth",
-    "0.055\\linewidth",
-    "0.125\\linewidth",
-    "0.14\\linewidth",
-    "0.557\\linewidth",
+    "0.05\\linewidth",
+    "0.04\\linewidth",
+    "0.10\\linewidth",
+    "0.115\\linewidth",
+    "0.671\\linewidth",
 ]
-LOG_GAP = r"\hspace{0.007\linewidth}"
+LOG_GAP = r"\hspace{0.006\linewidth}"
 
 
 def tex_escape(text: str) -> str:
@@ -224,33 +224,39 @@ def make_summary_table() -> str:
     return "\n".join(lines) + "\n"
 
 
-def log_cell(width: str, text: str, center: bool = False, fixed_height: bool = False) -> str:
-    if fixed_height:
-        return rf"\parbox[t][1.45em][c]{{{width}}}{{\centering\strut {text}}}"
+def log_cell(width: str, text: str, center: bool = False, header: bool = False) -> str:
+    if header:
+        return rf"\parbox[c][2.2em][c]{{{width}}}{{\centering {text}}}"
     if center:
-        return rf"\parbox[t]{{{width}}}{{\centering {text}}}"
+        return rf"\parbox[t]{{{width}}}{{\centering\strut {text}}}"
     return rf"\parbox[t]{{{width}}}{{{text}}}"
 
 
 def log_header(cells: list[str]) -> str:
-    pieces = []
-    for width, cell in zip(LOG_WIDTHS, cells):
-        pieces.append(rf"\parbox[c][2.6em][c]{{{width}}}{{\centering {cell}}}")
-    inner = LOG_GAP.join(pieces)
-    return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
+    inner = LOG_GAP.join(log_cell(width, cell, header=True) for width, cell in zip(LOG_WIDTHS, cells))
+    return (
+        r"\noindent{\setlength{\fboxsep}{0pt}\colorbox{black!4}{\parbox{\linewidth}{"
+        + inner
+        + r"}}}\par\smallskip"
+    )
 
 
 def log_row(cells: list[str], shaded: bool) -> str:
-    pieces = [
-        log_cell(LOG_WIDTHS[0], cells[0], center=True, fixed_height=True),
-        log_cell(LOG_WIDTHS[1], cells[1], center=True, fixed_height=True),
-        log_cell(LOG_WIDTHS[2], cells[2], center=True),
-        log_cell(LOG_WIDTHS[3], cells[3], center=True),
-        log_cell(LOG_WIDTHS[4], cells[4]),
-    ]
-    inner = LOG_GAP.join(pieces)
+    inner = LOG_GAP.join(
+        [
+            log_cell(LOG_WIDTHS[0], cells[0], center=True),
+            log_cell(LOG_WIDTHS[1], cells[1], center=True),
+            log_cell(LOG_WIDTHS[2], cells[2], center=True),
+            log_cell(LOG_WIDTHS[3], cells[3], center=True),
+            log_cell(LOG_WIDTHS[4], cells[4]),
+        ]
+    )
     if shaded:
-        return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
+        return (
+            r"\noindent{\setlength{\fboxsep}{0pt}\colorbox{black!4}{\parbox{\linewidth}{"
+            + inner
+            + r"}}}\par\smallskip"
+        )
     return rf"\noindent{inner}\par\smallskip"
 
 

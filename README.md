@@ -5,13 +5,13 @@ Shared benchmark repo for fixed-budget ground-state optimization experiments, in
 ## Install the Skill
 
 ```bash
-npx skills add bestquark/gsopt --skill gsopt
+npx skills add bestquark/gsopt
 ```
 
 For local testing from inside this repo:
 
 ```bash
-npx skills add . --skill gsopt
+npx skills add .
 ```
 
 ## Layout

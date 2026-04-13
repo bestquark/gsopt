@@ -1,0 +1,46 @@
+\documentclass[10pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{newtxtext}
+\usepackage{newtxmath}
+\usepackage{microtype}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage[table]{xcolor}
+\usepackage{pifont}
+\usepackage{hyperref}
+
+\hypersetup{hidelinks}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.4em}
+
+\begin{document}
+
+\section*{Autoresearch Logs}
+This external supplement collects the full scored mutation logs for the VQE, tensor-network, and AFQMC campaigns discussed in the manuscript.
+
+\subsection*{VQE logs}
+This section lists the scored 100-iteration mutation logs for the four completed VQE molecule campaigns. The A/R column indicates whether the autoresearch loop kept the candidate snapshot, and the reported relative gain is measured against the immediately previous scored iteration in the same run.
+
+{\scriptsize
+\input{generated_vqe_log_tables.tex}
+}
+
+\subsection*{Tensor-network logs}
+This section lists the scored 100-iteration mutation logs for the four completed $L=64$ tensor-network campaigns. The A/R column indicates whether the autoresearch loop kept the candidate snapshot, the online score is the fixed-budget final energy, and the relative gain is measured against the immediately previous scored iteration in the same run.
+
+{\scriptsize
+\input{generated_tn_log_tables.tex}
+}
+
+\subsection*{AFQMC logs}
+This section lists every scored AFQMC mutation used in the manuscript. The relative gain is measured against the immediately previous scored iteration under the live AFQMC objective, and the accept/reject column records whether the autoresearch loop kept the candidate snapshot.
+
+{\scriptsize
+\input{generated_afqmc_improvement_tables.tex}
+}
+
+\end{document}

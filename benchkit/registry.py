@@ -125,8 +125,8 @@ AFQMC_LANE = LaneSpec(
     optuna_root_env="AUTORESEARCH_AFQMC_OPTUNA_ROOT",
     default_iterations=100,
     default_wall_seconds=300.0,
-    objective_metric="tail_mean_plus_std",
-    objective_text="Lower the 5-minute molecular AFQMC score tail_mean + std_tail, where both quantities are computed from the last 40% of sampled blocks, without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
+    objective_metric="tail_mean_plus_5std",
+    objective_text="Lower the 5-minute molecular AFQMC score tail_mean + 5 * std_tail, where both quantities are computed from the last 50% of sampled blocks, without changing the molecular geometry or basis. CCSD(T) error remains an offline comparison metric.",
     support_files=("examples/afqmc/model_registry.py", "examples/afqmc/reference_energies.py"),
 )
 

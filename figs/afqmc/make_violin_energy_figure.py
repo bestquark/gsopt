@@ -24,6 +24,7 @@ LANE_DIR = ROOT / "examples" / "afqmc"
 FIG_DIR = Path(os.environ.get("AUTORESEARCH_AFQMC_FIG_DIR", Path(__file__).resolve().parent))
 OUTPUT_PDF = FIG_DIR / "afqmc_violin_energy_comparison.pdf"
 OUTPUT_PNG = FIG_DIR / "afqmc_violin_energy_comparison.png"
+RUN_SELECTION = os.environ.get("AUTORESEARCH_AFQMC_RUN_SELECTION", "completed").strip().lower()
 INITIAL_FILL = "#d8a5a5"
 INITIAL_EDGE = "#b14f4f"
 BEST_FILL = "#b9d97c"
@@ -101,6 +102,8 @@ def _latest_run_dir(system: str) -> Path:
     runs = sorted(path for path in benchmark_dir.glob("run_*") if path.is_dir())
     if not runs:
         raise FileNotFoundError(f"no run_* directory found under {benchmark_dir}")
+    if RUN_SELECTION == "latest":
+        return runs[-1]
     completed: list[Path] = []
     for run_dir in runs:
         status_path = run_dir / "status.json"

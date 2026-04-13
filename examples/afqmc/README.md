@@ -30,10 +30,10 @@ Lane-level shared files:
 The live score is the fixed-tail AFQMC objective:
 
 ```text
-score = mean_tail + std_tail
+score = mean_tail + 5 * std_tail
 ```
 
-where `mean_tail` and `std_tail` are computed from the final 40% of sampled
+where `mean_tail` and `std_tail` are computed from the final 50% of sampled
 AFQMC blocks.
 
 `CCSD(T)` error is an offline comparison metric only.
@@ -86,20 +86,20 @@ codex
 ```
 
 ```text
-$gsopt Run 100 iterations in the current directory. Lower the 5-minute AFQMC score mean_tail + std_tail over the last 40% of blocks without changing the evaluator contract.
+$gsopt Run 100 iterations in the current directory. Lower the 5-minute AFQMC score mean_tail + 5 * std_tail over the last 50% of blocks without changing the evaluator contract.
 ```
 
 Claude Code may expose the same skill as:
 
 ```text
-/gsopt 100 . Lower the 5-minute AFQMC score mean_tail + std_tail over the last 40% of blocks without changing the evaluator contract.
+/gsopt 100 . Lower the 5-minute AFQMC score mean_tail + 5 * std_tail over the last 50% of blocks without changing the evaluator contract.
 ```
 
 Manual scaffolding fallback:
 
 ```bash
 cd examples/afqmc/h2
-uv run gsopt 100 . "Lower the 5-minute AFQMC score mean_tail + std_tail over the last 40% of blocks."
+uv run gsopt 100 . "Lower the 5-minute AFQMC score mean_tail + 5 * std_tail over the last 50% of blocks."
 ```
 
 Benchmark-local Optuna baseline:

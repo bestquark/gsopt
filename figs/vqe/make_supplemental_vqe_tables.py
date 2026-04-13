@@ -131,6 +131,13 @@ def best_row(rows: list[dict[str, str]]) -> dict[str, str]:
     return min(kept, key=lambda row: float(row["abs_final_error"]))
 
 
+def accept_reject_ratio(rows: list[dict[str, str]]) -> str:
+    mutated = [row for row in rows if int(row["iteration"]) > 0]
+    accepted = sum(1 for row in mutated if row.get("status") == "keep")
+    rejected = len(mutated) - accepted
+    return f"{accepted}/{rejected}"
+
+
 def format_number(value: object) -> str:
     if isinstance(value, int):
         return str(value)
@@ -225,21 +232,23 @@ def make_summary_table() -> str:
         r"\setlength{\tabcolsep}{3pt}",
         r"\renewcommand{\arraystretch}{1.12}",
         r"\renewcommand{\tabularxcolumn}[1]{m{#1}}",
-        r"\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{0.085\textwidth} >{\centering\arraybackslash}m{0.10\textwidth} Y Y >{\centering\arraybackslash}m{0.11\textwidth}}",
+        r"\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{0.075\textwidth} >{\centering\arraybackslash}m{0.07\textwidth} >{\centering\arraybackslash}m{0.095\textwidth} Y Y >{\centering\arraybackslash}m{0.105\textwidth}}",
         r"\toprule",
-        r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{Final $|\Delta E|$ [Ha]} \\",
+        r"\textbf{Molecule} & \textbf{A/R} & \textbf{Protocol} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{Final $|\Delta E|$ [Ha]} \\",
         r"\midrule",
     ]
     for idx, stem in enumerate(ORDER):
         rows = read_rows(stem)
         baseline = rows[0]
         best = best_row(rows)
+        ratio = accept_reject_ratio(rows)
         baseline_cfg = config_for_iteration(stem, int(baseline["iteration"]))
         best_cfg = config_for_iteration(stem, int(best["iteration"]))
         lines.append(
             " & ".join(
                 [
                     rf"\multirow[c]{{2}}{{=}}{{\centering {MOLECULE_NAMES[stem]}}}",
+                    rf"\multirow[c]{{2}}{{=}}{{\centering {ratio}}}",
                     "Initial",
                     summarize_ansatz(baseline_cfg),
                     summarize_optimizer(baseline_cfg),
@@ -248,10 +257,11 @@ def make_summary_table() -> str:
             )
             + r" \\"
         )
-        lines.append(r"\arrayrulecolor{black!28}\cmidrule(lr){2-5}\arrayrulecolor{black}")
+        lines.append(r"\arrayrulecolor{black!28}\cmidrule(lr){3-6}\arrayrulecolor{black}")
         lines.append(
             " & ".join(
                 [
+                    "",
                     "",
                     rf"\shortstack[c]{{Best\\(Iter. {int(best['iteration'])})}}",
                     summarize_ansatz(best_cfg),

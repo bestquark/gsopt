@@ -76,6 +76,13 @@ def best_row(rows: list[dict[str, object]]) -> dict[str, object]:
     return min(kept, key=lambda row: float(row["score"]))
 
 
+def accept_reject_ratio(rows: list[dict[str, object]]) -> str:
+    mutated = [row for row in rows if int(row["iteration"]) > 0]
+    accepted = sum(1 for row in mutated if row["status"] == "keep")
+    rejected = len(mutated) - accepted
+    return f"{accepted}/{rejected}"
+
+
 def summarize_trial(cfg: dict[str, object]) -> str:
     parts: list[str] = []
     trial = cfg.get("trial")
@@ -131,19 +138,21 @@ def make_summary_table() -> str:
         r"\setlength{\tabcolsep}{3pt}",
         r"\renewcommand{\arraystretch}{1.12}",
         r"\renewcommand{\tabularxcolumn}[1]{m{#1}}",
-        r"\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{0.085\textwidth} >{\centering\arraybackslash}m{0.10\textwidth} Y Y >{\centering\arraybackslash}m{0.11\textwidth}}",
+        r"\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{0.075\textwidth} >{\centering\arraybackslash}m{0.07\textwidth} >{\centering\arraybackslash}m{0.095\textwidth} Y Y >{\centering\arraybackslash}m{0.11\textwidth}}",
         r"\toprule",
-        r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Trial / SCF Settings} & \textbf{Walker and Propagation Settings} & \textbf{Live Score} \\",
+        r"\textbf{Molecule} & \textbf{A/R} & \textbf{Protocol} & \textbf{Trial / SCF Settings} & \textbf{Walker and Propagation Settings} & \textbf{Live Score} \\",
         r"\midrule",
     ]
     for idx, stem in enumerate(ORDER):
         rows = read_rows(stem)
         baseline = rows[0]
         best = best_row(rows)
+        ratio = accept_reject_ratio(rows)
         lines.append(
             " & ".join(
                 [
                     rf"\multirow[c]{{2}}{{=}}{{\centering {MOLECULE_NAMES[stem]}}}",
+                    rf"\multirow[c]{{2}}{{=}}{{\centering {ratio}}}",
                     "Initial",
                     summarize_trial(baseline["config"]),
                     summarize_propagation(baseline["config"]),
@@ -152,10 +161,11 @@ def make_summary_table() -> str:
             )
             + r" \\"
         )
-        lines.append(r"\arrayrulecolor{black!28}\cmidrule(lr){2-5}\arrayrulecolor{black}")
+        lines.append(r"\arrayrulecolor{black!28}\cmidrule(lr){3-6}\arrayrulecolor{black}")
         lines.append(
             " & ".join(
                 [
+                    "",
                     "",
                     rf"\shortstack[c]{{Best\\(Iter. {int(best['iteration'])})}}",
                     summarize_trial(best["config"]),

@@ -193,13 +193,14 @@ def summarize_solver(cfg: dict[str, object]) -> str:
 
 def make_summary_table() -> str:
     lines = [
-        r"\begin{table}[t]",
-        r"\caption{Archived baseline and best tensor-network protocols for the four completed $L=64$ critical-spin-chain campaigns. Each model is listed in two rows, with the winning iteration shown in parentheses.}",
+        r"\begin{table}[!htbp]",
+        r"\caption{Baseline and best archived tensor-network protocols for the four $L=64$ campaigns.}",
         r"\label{tab:supp_tn_protocols}",
         r"\centering",
         r"\setlength{\tabcolsep}{3pt}",
         r"\renewcommand{\arraystretch}{1.12}",
-        r"\begin{tabularx}{\textwidth}{L{0.14\textwidth} C{0.10\textwidth} Y Y C{0.11\textwidth}}",
+        r"\renewcommand{\tabularxcolumn}[1]{m{#1}}",
+        r"\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}m{0.12\textwidth} >{\centering\arraybackslash}m{0.10\textwidth} Y Y >{\centering\arraybackslash}m{0.11\textwidth}}",
         r"\toprule",
         r"\textbf{Model} & \textbf{Protocol} & \textbf{Method / Initial State} & \textbf{Bond and Solver Settings} & \textbf{Final Energy} \\",
         r"\midrule",
@@ -211,7 +212,7 @@ def make_summary_table() -> str:
         lines.append(
             " & ".join(
                 [
-                    rf"\multirow[c]{{2}}{{=}}{{\raggedright {SUMMARY_MODEL_NAMES[stem]}}}",
+                    rf"\multirow[c]{{2}}{{=}}{{\centering {SUMMARY_MODEL_NAMES[stem]}}}",
                     "Initial",
                     summarize_method(baseline["config"]),
                     summarize_solver(baseline["config"]),
@@ -224,7 +225,7 @@ def make_summary_table() -> str:
             " & ".join(
                 [
                     "",
-                    rf"\shortstack{{Best\\(Iter. {int(best['iteration'])})}}",
+                    rf"\shortstack[c]{{Best\\(Iter. {int(best['iteration'])})}}",
                     summarize_method(best["config"]),
                     summarize_solver(best["config"]),
                     format_score(best["score"]),

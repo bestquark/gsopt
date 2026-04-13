@@ -76,7 +76,7 @@ def main():
 
     vmin = max(min(all_positive_values), 1e-6)
     vmax = max(all_positive_values)
-    cmap = plt.get_cmap("magma").copy()
+    cmap = plt.get_cmap("viridis").copy()
     cmap.set_bad("#d9d9d9")
     norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
 

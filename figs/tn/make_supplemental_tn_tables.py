@@ -221,6 +221,7 @@ def make_summary_table() -> str:
             )
             + r" \\"
         )
+        lines.append(r"\arrayrulecolor{black!28}\cmidrule(lr){2-5}\arrayrulecolor{black}")
         lines.append(
             " & ".join(
                 [

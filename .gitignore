@@ -44,3 +44,14 @@ examples/*/.gsopt_eval_*/
 examples/*/*/.afqmc_violin_eval_*.py
 logs/
 experiment1_run.log
+
+# Generated TeX log artifacts
+experiments/generated_*.tex
+experiments/*.aux
+experiments/*.bbl
+experiments/*.blg
+experiments/*.fdb_latexmk
+experiments/*.fls
+experiments/*.log
+experiments/*.out
+experiments/*.pdf

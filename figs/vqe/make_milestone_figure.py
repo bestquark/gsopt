@@ -51,8 +51,8 @@ MOLECULE_LEGEND = {
 }
 MOLECULE_COLORS = {
     "bh": "#b14f4f",
-    "lih": "#76B900",
-    "beh2": "#443983",
+    "lih": "#443983",
+    "beh2": "#76B900",
     "h2o": "#2a788e",
 }
 CHEMICAL_ACCURACY = 1e-3

@@ -54,4 +54,3 @@ experiments/*.fdb_latexmk
 experiments/*.fls
 experiments/*.log
 experiments/*.out
-experiments/*.pdf

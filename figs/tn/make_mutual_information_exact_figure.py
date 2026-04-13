@@ -104,7 +104,7 @@ def main():
 
     fig.subplots_adjust(left=0.07, right=0.90, bottom=0.20, top=0.86, wspace=0.18)
     cbar = fig.colorbar(image, ax=axes, fraction=0.045, pad=0.03)
-    cbar.set_label(r"$I_{ij}^{\mathrm{ref}}$", labelpad=14)
+    cbar.set_label(r"$I_{\mathrm{ref}}$", labelpad=14)
     cbar.ax.tick_params(labelsize=24)
 
     fig.savefig(OUTPUT_PDF, bbox_inches="tight")

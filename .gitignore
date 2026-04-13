@@ -47,6 +47,7 @@ experiment1_run.log
 
 # Generated TeX log artifacts
 experiments/generated_*.tex
+experiments/logs.tex
 experiments/*.aux
 experiments/*.bbl
 experiments/*.blg

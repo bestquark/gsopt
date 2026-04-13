@@ -121,27 +121,15 @@ If GSOpt cannot infer either file, rerun with `--source <path>` and/or `--evalua
 - `examples/afqmc/`: four molecular PySCF + ipie AFQMC benchmarks
 - `examples/gibbs/`: separate exact-reference Gibbs / MCMC experiments
 
-Representative editable targets:
+Editable targets generally follow:
 
-- `examples/vqe/bh/simple_vqe.py`
-- `examples/vqe/lih/simple_vqe.py`
-- `examples/vqe/beh2/simple_vqe.py`
-- `examples/vqe/h2o/simple_vqe.py`
-- `examples/vqe/n2/simple_vqe.py`
-- `examples/tn/heisenberg_xxx_384/initial_script.py`
-- `examples/tn/xxz_gapless_256/initial_script.py`
-- `examples/tn/spin1_heisenberg_64/initial_script.py`
-- `examples/tn/tfim_2d_4x4/initial_script.py`
-- `examples/tn/heisenberg_2d_4x4/initial_script.py`
-- `examples/dmrg/heisenberg_xxx_384/simple_dmrg.py`
-- `examples/dmrg/xxz_gapless_256/simple_dmrg.py`
-- `examples/dmrg/tfim_longitudinal_256/simple_dmrg.py`
-- `examples/dmrg/spin1_heisenberg_64/simple_dmrg.py`
-- `examples/dmrg/spin1_single_ion_critical_64/simple_dmrg.py`
-- `examples/afqmc/h2/initial_script.py`
-- `examples/afqmc/lih/initial_script.py`
-- `examples/afqmc/h2o/initial_script.py`
-- `examples/afqmc/n2/initial_script.py`
+- `examples/<lane>/<benchmark>/<method-file>`
+
+In practice, each benchmark directory contains one small mutable method file plus fixed scoring infrastructure. Typical method files are:
+
+- `simple_vqe.py` for `examples/vqe/<molecule>/`
+- `initial_script.py` for `examples/tn/<model>/` and `examples/afqmc/<molecule>/`
+- `simple_dmrg.py` for `examples/dmrg/<model>/`
 
 ## Internal Baselines
 

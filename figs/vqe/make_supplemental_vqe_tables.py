@@ -2,45 +2,40 @@ from __future__ import annotations
 
 import ast
 import csv
-import difflib
-import json
-import sys
-from dataclasses import dataclass
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+PAPER_ROOT = ROOT.parent / "autoresearch" / "overleaf"
+LEGACY_ARCHIVES = [
+    ROOT.parent / "autoresearch_legacy" / "gsopt_repo_archive_20260411_102814",
+    ROOT.parent / "autoresearch_legacy" / "gsopt_repo_archive_20260411_102759",
+]
+LEGACY_ROOT = next((path for path in LEGACY_ARCHIVES if path.exists()), None)
+if LEGACY_ROOT is None:
+    raise FileNotFoundError("could not locate autoresearch_legacy VQE archive")
 
-from examples.vqe.reference_energies import reference_energy
-
-SNAPSHOT_ROOT = ROOT / "examples" / "vqe" / "snapshots"
-OUTPUT = ROOT / "overleaf" / "generated_vqe_improvement_tables.tex"
+SNAPSHOT_ROOT = LEGACY_ROOT / "examples" / "vqe" / "snapshots"
+SUMMARY_OUTPUT = PAPER_ROOT / "generated_vqe_summary_table.tex"
+LOG_OUTPUT = PAPER_ROOT / "generated_vqe_log_tables.tex"
 ORDER = ["bh", "lih", "beh2", "h2o"]
 MOLECULE_NAMES = {
     "bh": "BH",
     "lih": "LiH",
-    "beh2": r"BeH\textsubscript{2}",
-    "h2o": r"H\textsubscript{2}O",
+    "beh2": r"BeH$_2$",
+    "h2o": r"H$_2$O",
 }
 
-
-@dataclass(frozen=True)
-class Improvement:
-    stem: str
-    prev_iteration: int
-    iteration: int
-    prev_error: float
-    error: float
-
-    @property
-    def gain_percent(self) -> float:
-        return 100.0 * (1.0 - self.error / self.prev_error)
-
-
-CORE_KEYS = ["ansatz", "param_model", "optimizer"]
-ANSATZ_KEYS = ["ansatz", "param_model", "layers", "init_scale"]
-OPTIMIZER_KEYS = ["optimizer", "max_steps", "step_size", "min_step_size", "seed", "cobyla_rhobeg", "cobyla_tol", "powell_xtol", "powell_ftol"]
+CHECK_MARK = r"\raisebox{0.08ex}{\ding{51}}"
+CROSS_MARK = r"\raisebox{0.08ex}{\ding{55}}"
+LOG_WIDTHS = [
+    "0.055\\linewidth",
+    "0.055\\linewidth",
+    "0.125\\linewidth",
+    "0.14\\linewidth",
+    "0.557\\linewidth",
+]
+LOG_GAP = r"\hspace{0.007\linewidth}"
 
 
 def tex_escape(text: str) -> str:
@@ -56,25 +51,14 @@ def tex_escape(text: str) -> str:
     return text
 
 
-def format_key(key: str) -> str:
-    return rf"\texttt{{{tex_escape(key)}}}"
+def read_rows(stem: str) -> list[dict[str, str]]:
+    path = SNAPSHOT_ROOT / stem / "results.tsv"
+    with path.open() as handle:
+        return [row for row in csv.DictReader(handle, delimiter="\t") if row.get("iteration")]
 
 
-def format_value(value: str) -> str:
-    value = value.strip()
-    if value.startswith('"') and value.endswith('"'):
-        return rf"\texttt{{{tex_escape(value[1:-1])}}}"
-    return rf"\texttt{{{tex_escape(value)}}}"
-
-
-def format_gain(value: float) -> str:
-    if value >= 1.0:
-        text = f"{value:.2f}"
-    elif value >= 0.01:
-        text = f"{value:.4f}".rstrip("0").rstrip(".")
-    else:
-        text = f"{value:.6f}".rstrip("0").rstrip(".")
-    return text + r"\%"
+def snapshot_file(stem: str, iteration: int) -> Path:
+    return SNAPSHOT_ROOT / stem / f"iter_{iteration:04d}" / "simple_vqe.py"
 
 
 def canonical_scalar(text: str):
@@ -83,21 +67,6 @@ def canonical_scalar(text: str):
         return ast.literal_eval(text)
     except Exception:
         return text
-
-
-def scalar_equal(lhs, rhs) -> bool:
-    if isinstance(lhs, float) or isinstance(rhs, float):
-        try:
-            return abs(float(lhs) - float(rhs)) <= 1e-15
-        except Exception:
-            return lhs == rhs
-    return lhs == rhs
-
-
-def value_to_tex(value) -> str:
-    if isinstance(value, str):
-        return rf"\texttt{{{tex_escape(value)}}}"
-    return rf"\texttt{{{tex_escape(repr(value))}}}"
 
 
 def extract_config_map(text: str) -> dict[str, object]:
@@ -142,246 +111,229 @@ def extract_config_map(text: str) -> dict[str, object]:
     return result
 
 
-def load_rows(stem: str) -> list[dict[str, str]]:
-    path = SNAPSHOT_ROOT / stem / "results.tsv"
-    with path.open() as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        return [row for row in reader if row.get("iteration")]
+def config_for_iteration(stem: str, iteration: int) -> dict[str, object]:
+    text = snapshot_file(stem, iteration).read_text()
+    config = extract_config_map(text)
+    if "ansatz" not in config and ("cudaq.kernels.uccsd" in text or "def uccsd_kernel" in text):
+        config["ansatz"] = "uccsd"
+    return config
 
 
-def row_error(stem: str, row: dict[str, str]) -> float | None:
-    if row.get("abs_final_error"):
-        return abs(float(row["abs_final_error"]))
-    if not row.get("final_energy"):
+def row_error(row: dict[str, str]) -> float | None:
+    value = row.get("abs_final_error")
+    if not value:
         return None
-    target = reference_energy(MOLECULE_NAMES[stem].replace(r"\textsubscript{2}", "2"))
-    if target is None:
-        return None
-    return abs(float(row["final_energy"]) - target)
+    return abs(float(value))
 
 
-def improvement_events(stem: str) -> list[Improvement]:
-    rows = load_rows(stem)
-    events: list[Improvement] = []
-    best_iter: int | None = None
-    best_error: float | None = None
-    for row in rows:
-        if row.get("status") != "keep":
-            continue
-        error = row_error(stem, row)
-        if error is None:
-            continue
-        iteration = int(row["iteration"])
-        if best_error is None:
-            best_iter = iteration
-            best_error = error
-            continue
-        if error < best_error:
-            events.append(
-                Improvement(
-                    stem=stem,
-                    prev_iteration=int(best_iter),
-                    iteration=iteration,
-                    prev_error=float(best_error),
-                    error=error,
-                )
-            )
-            best_iter = iteration
-            best_error = error
-    return events
+def best_row(rows: list[dict[str, str]]) -> dict[str, str]:
+    kept = [row for row in rows if row.get("status") == "keep" and row_error(row) is not None]
+    return min(kept, key=lambda row: float(row["abs_final_error"]))
 
 
-def snapshot_file(stem: str, iteration: int) -> Path:
-    root = SNAPSHOT_ROOT / stem / f"iter_{iteration:04d}"
-    metadata_path = root / "metadata.json"
-    if metadata_path.exists():
-        try:
-            payload = json.loads(metadata_path.read_text())
-        except json.JSONDecodeError:
-            payload = None
-        if isinstance(payload, dict):
-            archived_name = payload.get("archived_source_name")
-            if archived_name:
-                candidate = root / str(archived_name)
-                if candidate.exists():
-                    return candidate
-    for name in ("simple_vqe.py",):
-        candidate = root / name
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(f"missing snapshot source file in {root}")
+def format_number(value: object) -> str:
+    if isinstance(value, int):
+        return str(value)
+    numeric = float(value)
+    if numeric == 0.0:
+        return "0"
+    magnitude = abs(numeric)
+    if 1e-3 <= magnitude < 1e3:
+        text = f"{numeric:.6f}".rstrip("0").rstrip(".")
+        return text or "0"
+    return f"{numeric:.1e}".replace("e-0", "e-").replace("e+0", "e+")
 
 
-def parse_assignment_changes(old_map: dict[str, object], new_map: dict[str, object]) -> tuple[list[str], list[str]]:
-    ansatz_phrases: list[str] = []
-    optimizer_phrases: list[str] = []
-    for key in ANSATZ_KEYS + OPTIMIZER_KEYS:
-        if key in old_map and key in new_map and not scalar_equal(old_map[key], new_map[key]):
-            phrase = (
-                f"{format_key(key)} {value_to_tex(old_map[key])} $\\rightarrow$ {value_to_tex(new_map[key])}"
-            )
-            if key in ANSATZ_KEYS:
-                ansatz_phrases.append(phrase)
-            else:
-                optimizer_phrases.append(phrase)
-    return ansatz_phrases, optimizer_phrases
-
-
-def summarize_initial_parameters(old_map: dict[str, object], new_map: dict[str, object]) -> list[str]:
-    old_values = tuple(old_map.get("initial_parameters", ()))
-    new_values = tuple(new_map.get("initial_parameters", ()))
-    if old_values == new_values:
-        return []
-    if not old_values and new_values:
-        return [rf"replace the zero start with {len(new_values)} warm-start amplitudes"]
-    if old_values and not new_values:
-        return [r"drop the explicit warm-start amplitudes"]
-    changed = sum(
-        1
-        for old_value, new_value in zip(old_values, new_values)
-        if abs(float(old_value) - float(new_value)) > 1e-15
-    )
-    if len(old_values) != len(new_values):
-        return [rf"resize the warm start from {len(old_values)} to {len(new_values)} amplitudes"]
-    if changed == len(new_values):
-        return [rf"retune all {len(new_values)} warm-start amplitudes"]
-    return [rf"retune {changed} of {len(new_values)} warm-start amplitudes"]
-
-
-def structural_phrases(old_text: str, new_text: str) -> tuple[list[str], list[str]]:
-    ansatz_phrases: list[str] = []
-    optimizer_phrases: list[str] = []
-
-    if "def uccsd_kernel" in new_text and "def uccsd_kernel" not in old_text:
-        ansatz_phrases.append(r"add a dedicated \texttt{uccsd} kernel")
-    if "cudaq.kernels.uccsd" in new_text and "cudaq.kernels.uccsd" not in old_text:
-        ansatz_phrases.append(r"switch the circuit body to CUDA-Q \texttt{uccsd}")
-    if "optimizer_options" in new_text and "optimizer_options" not in old_text:
-        optimizer_phrases.append(r"add explicit optimizer tolerance hooks")
-    if "uccsd_spin_paired_symmetric" in new_text and "uccsd_spin_paired_symmetric" not in old_text:
-        ansatz_phrases.append(r"add the \texttt{uccsd\_spin\_paired\_symmetric} map")
-    if "REFERENCE_SPIN_PAIRED_FULL_DOUBLES" in new_text and "REFERENCE_SPIN_PAIRED_FULL_DOUBLES" not in old_text:
-        ansatz_phrases.append(r"add the full-\texttt{uccsd} expansion map")
-    if "run_coordinate_search" in old_text and "run_coordinate_search" in new_text:
-        if "max_passes=max(4, 2 * len(result_x))" in old_text and "max_passes=max(4, 2 * len(result_x))" not in new_text:
-            optimizer_phrases.append(r"remove the extra coordinate-search restart")
-    if "def hea_ry_ring_kernel" in old_text and "def hea_ry_ring_kernel" not in new_text:
-        ansatz_phrases.append(r"drop the HEA kernel path")
-
-    def dedupe(items: list[str]) -> list[str]:
-        deduped: list[str] = []
-        for phrase in items:
-            if phrase not in deduped:
-                deduped.append(phrase)
-        return deduped
-
-    return dedupe(ansatz_phrases), dedupe(optimizer_phrases)
-
-
-def combine_column(phrases: list[str]) -> str:
-    if not phrases:
+def format_error(value: float | None) -> str:
+    if value is None:
         return r"---"
-    deduped: list[str] = []
-    for phrase in phrases:
-        if phrase not in deduped:
-            deduped.append(phrase)
-    return "; ".join(deduped[:5]) + "."
+    if value == 0.0:
+        return "0"
+    exponent = int(f"{value:.1e}".split("e")[1])
+    mantissa = value / (10 ** exponent)
+    mantissa_text = f"{mantissa:.3f}".rstrip("0").rstrip(".")
+    return rf"${mantissa_text}\times 10^{{{exponent}}}$"
 
 
-def summarize_diff_columns(stem: str, previous_iteration: int, current_iteration: int) -> tuple[str, str]:
-    previous_path = snapshot_file(stem, previous_iteration)
-    current_path = snapshot_file(stem, current_iteration)
-    previous_text = previous_path.read_text()
-    current_text = current_path.read_text()
-    previous = previous_text.splitlines()
-    current = current_text.splitlines()
-    diff = list(difflib.unified_diff(previous, current, n=0))
-    old_lines = [line for line in diff if line.startswith("-") and not line.startswith("---")]
-    new_lines = [line for line in diff if line.startswith("+") and not line.startswith("+++")]
-    old_map = extract_config_map(previous_text)
-    new_map = extract_config_map(current_text)
-
-    ansatz_phrases, optimizer_phrases = parse_assignment_changes(old_map, new_map)
-    ansatz_phrases.extend(summarize_initial_parameters(old_map, new_map))
-    structural_ansatz, structural_optimizer = structural_phrases(previous_text, current_text)
-    ansatz_phrases.extend(structural_ansatz)
-    optimizer_phrases.extend(structural_optimizer)
-
-    if not ansatz_phrases and not optimizer_phrases:
-        changed = []
-        for line in old_lines[:2]:
-            changed.append(rf"remove {format_value(line[1:].strip().rstrip(','))}")
-        for line in new_lines[:2]:
-            changed.append(rf"add {format_value(line[1:].strip().rstrip(','))}")
-        ansatz_phrases.extend(changed)
-
-    return combine_column(ansatz_phrases), combine_column(optimizer_phrases)
+def format_relative_gain(prev_error: float | None, current_error: float | None) -> str:
+    if prev_error is None or current_error is None or prev_error <= 0.0:
+        return r"---"
+    gain = 100.0 * (prev_error - current_error) / prev_error
+    if abs(gain) < 5e-5:
+        gain = 0.0
+    sign = "+" if gain >= 0 else ""
+    magnitude = abs(gain)
+    if magnitude >= 1.0:
+        text = f"{gain:.2f}"
+    elif magnitude >= 0.01:
+        text = f"{gain:.4f}"
+    else:
+        text = f"{gain:.6f}"
+    text = text.rstrip("0").rstrip(".")
+    if text == "-0":
+        text = "0"
+    if not text.startswith("-") and not text.startswith("+"):
+        text = sign + text
+    return text + r"\%"
 
 
-def zebra_row(cells: list[str], shaded: bool) -> str:
-    widths = ["0.09\\linewidth", "0.15\\linewidth", "0.35\\linewidth", "0.35\\linewidth"]
-    pieces = [
-        rf"\parbox[c]{{{widths[0]}}}{{\centering {cells[0]}}}",
-        rf"\parbox[c]{{{widths[1]}}}{{\centering {cells[1]}}}",
-        rf"\parbox[c]{{{widths[2]}}}{{{cells[2]}}}",
-        rf"\parbox[c]{{{widths[3]}}}{{{cells[3]}}}",
+def summarize_ansatz(cfg: dict[str, object]) -> str:
+    parts: list[str] = []
+    ansatz = cfg.get("ansatz")
+    if ansatz:
+        parts.append(rf"\texttt{{{tex_escape(str(ansatz))}}}")
+    param_model = cfg.get("param_model")
+    if param_model and param_model != ansatz:
+        parts.append(rf"param. \texttt{{{tex_escape(str(param_model))}}}")
+    layers = cfg.get("layers")
+    if isinstance(layers, int) and layers:
+        parts.append(rf"$L={layers}$")
+    initial_parameters = cfg.get("initial_parameters", ())
+    if isinstance(initial_parameters, tuple) and initial_parameters:
+        parts.append(rf"warm start $n={len(initial_parameters)}$")
+    if not parts:
+        return r"---"
+    return ", ".join(parts) + "."
+
+
+def summarize_optimizer(cfg: dict[str, object]) -> str:
+    parts: list[str] = []
+    optimizer = cfg.get("optimizer")
+    if optimizer:
+        parts.append(rf"\texttt{{{tex_escape(str(optimizer))}}}")
+    if "max_steps" in cfg:
+        parts.append(rf"\texttt{{max\_steps}}={cfg['max_steps']}")
+    if "init_scale" in cfg:
+        parts.append(rf"\texttt{{init\_scale}}={format_number(cfg['init_scale'])}")
+    if "seed" in cfg:
+        parts.append(rf"seed {cfg['seed']}")
+    if optimizer == "cobyla" and "cobyla_rhobeg" in cfg:
+        parts.append(rf"\texttt{{rhobeg}}={format_number(cfg['cobyla_rhobeg'])}")
+    if optimizer == "powell" and "powell_xtol" in cfg:
+        parts.append(rf"\texttt{{xtol}}={format_number(cfg['powell_xtol'])}")
+    if not parts:
+        return r"---"
+    return ", ".join(parts[:5]) + "."
+
+
+def make_summary_table() -> str:
+    lines = [
+        r"\begin{table}[h]",
+        r"\caption{Initial and best archived VQE protocols for the four completed molecular campaigns used in the supplement.}",
+        r"\label{tab:supp_vqe_protocols}",
+        r"\footnotesize",
+        r"\centering",
+        r"\renewcommand{\arraystretch}{1.08}",
+        r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{l c l l c}",
+        r"\toprule",
+        r"\textbf{Molecule} & \textbf{Stage} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{$|\Delta E|$ [Ha]} \\",
+        r"\midrule",
     ]
-    inner = r"\hspace{0.01\linewidth}".join(pieces)
+    for stem in ORDER:
+        rows = read_rows(stem)
+        baseline = rows[0]
+        best = best_row(rows)
+        for stage, row in (
+            ("Initial", baseline),
+            (rf"Optimized ({int(best['iteration'])})", best),
+        ):
+            cfg = config_for_iteration(stem, int(row["iteration"]))
+            lines.append(
+                " & ".join(
+                    [
+                        MOLECULE_NAMES[stem],
+                        stage,
+                        summarize_ansatz(cfg),
+                        summarize_optimizer(cfg),
+                        format_error(row_error(row)),
+                    ]
+                )
+                + r" \\"
+            )
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\end{tabular}}",
+            r"\end{table}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def log_cell(width: str, text: str, center: bool = False, fixed_height: bool = False) -> str:
+    if fixed_height:
+        return rf"\parbox[t][1.45em][c]{{{width}}}{{\centering\strut {text}}}"
+    if center:
+        return rf"\parbox[t]{{{width}}}{{\centering {text}}}"
+    return rf"\parbox[t]{{{width}}}{{{text}}}"
+
+
+def log_header(cells: list[str]) -> str:
+    pieces = [rf"\parbox[c][2.6em][c]{{{width}}}{{\centering {cell}}}" for width, cell in zip(LOG_WIDTHS, cells)]
+    inner = LOG_GAP.join(pieces)
+    return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
+
+
+def log_row(cells: list[str], shaded: bool) -> str:
+    pieces = [
+        log_cell(LOG_WIDTHS[0], cells[0], center=True, fixed_height=True),
+        log_cell(LOG_WIDTHS[1], cells[1], center=True, fixed_height=True),
+        log_cell(LOG_WIDTHS[2], cells[2], center=True),
+        log_cell(LOG_WIDTHS[3], cells[3], center=True),
+        log_cell(LOG_WIDTHS[4], cells[4]),
+    ]
+    inner = LOG_GAP.join(pieces)
     if shaded:
         return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
     return rf"\noindent{inner}\par\smallskip"
 
 
-def header_row(cells: list[str]) -> str:
-    widths = ["0.09\\linewidth", "0.15\\linewidth", "0.35\\linewidth", "0.35\\linewidth"]
-    pieces = [
-        rf"\parbox[c][2.6em][c]{{{widths[0]}}}{{\centering {cells[0]}}}",
-        rf"\parbox[c][2.6em][c]{{{widths[1]}}}{{\centering {cells[1]}}}",
-        rf"\parbox[c][2.6em][c]{{{widths[2]}}}{{\centering {cells[2]}}}",
-        rf"\parbox[c][2.6em][c]{{{widths[3]}}}{{\centering {cells[3]}}}",
-    ]
-    inner = r"\hspace{0.01\linewidth}".join(pieces)
-    return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
-
-
-def make_table(stem: str) -> str:
-    molecule = MOLECULE_NAMES[stem]
-    label = f"tab:supp_vqe_{stem}"
+def make_log_table(stem: str) -> str:
+    rows = read_rows(stem)[1:]
     caption = (
-        rf"All improving {molecule} iterations. Gains are measured relative to the previous best archived "
-        r"iteration in the same lane."
+        rf"VQE mutation log for {MOLECULE_NAMES[stem]} full 100-iteration archival campaign. "
+        r"Relative gain is measured against the immediately previous scored iteration using the absolute energy error."
     )
     lines = [
         r"\refstepcounter{table}",
-        rf"\label{{{label}}}",
+        rf"\label{{tab:supp_vqe_log_{stem}}}",
         rf"\noindent\textbf{{Table \thetable.}} {caption}",
         r"\par\medskip",
         r"\noindent\rule{\linewidth}{0.5pt}",
-        header_row(
+        log_header(
             [
                 r"\textbf{Iter.}",
+                r"\textbf{A/R}",
                 r"\textbf{Relative gain}",
-                r"\textbf{Ansatz changes}",
-                r"\textbf{Optimizer changes}",
+                r"\textbf{$|\Delta E|$ [Ha]}",
+                r"\textbf{Mutation summary}",
             ]
         ),
         r"\noindent\rule{\linewidth}{0.5pt}",
     ]
-    for idx, event in enumerate(improvement_events(stem)):
-        ansatz_description, optimizer_description = summarize_diff_columns(
-            stem, event.prev_iteration, event.iteration
-        )
+
+    previous_error: float | None = None
+    for idx, row in enumerate(rows):
+        current_error = row_error(row)
+        status = row.get("status", "")
+        mark = CHECK_MARK if status == "keep" else CROSS_MARK
+        summary = tex_escape((row.get("description") or "").strip() or "no mutation summary recorded")
         lines.append(
-            zebra_row(
+            log_row(
                 [
-                    str(event.iteration),
-                    format_gain(event.gain_percent),
-                    ansatz_description,
-                    optimizer_description,
+                    row["iteration"],
+                    mark,
+                    format_relative_gain(previous_error, current_error),
+                    format_error(current_error),
+                    summary,
                 ],
-                shaded=bool(idx % 2),
+                shaded=(idx % 2 == 0),
             )
         )
+        if current_error is not None:
+            previous_error = current_error
+
     lines.extend(
         [
             r"\noindent\rule{\linewidth}{0.5pt}",
@@ -391,17 +343,21 @@ def make_table(stem: str) -> str:
     return "\n".join(lines)
 
 
-def main():
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    parts = []
+def make_log_tables() -> str:
+    parts: list[str] = []
     for idx, stem in enumerate(ORDER):
         if idx:
-            parts.append("")
-            parts.append(r"\medskip")
-            parts.append("")
-        parts.append(make_table(stem))
-    OUTPUT.write_text("\n".join(parts) + "\n")
-    print(OUTPUT)
+            parts.extend(["", r"\medskip", ""])
+        parts.append(make_log_table(stem))
+    return "\n".join(parts) + "\n"
+
+
+def main():
+    PAPER_ROOT.mkdir(parents=True, exist_ok=True)
+    SUMMARY_OUTPUT.write_text(make_summary_table())
+    LOG_OUTPUT.write_text(make_log_tables())
+    print(SUMMARY_OUTPUT)
+    print(LOG_OUTPUT)
 
 
 if __name__ == "__main__":

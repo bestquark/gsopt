@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 PAPER_ROOT = ROOT.parent / "autoresearch" / "overleaf"
-OUTPUT = PAPER_ROOT / "generated_tn_improvement_tables.tex"
+SUMMARY_OUTPUT = PAPER_ROOT / "generated_tn_summary_table.tex"
+LOG_OUTPUT = PAPER_ROOT / "generated_tn_log_tables.tex"
 RUNS = {
     "heisenberg_xxx_64": ROOT / "examples" / "tn" / "heisenberg_xxx_64" / "run_20260412_172834",
     "xxz_gapless_64": ROOT / "examples" / "tn" / "xxz_gapless_64" / "run_20260412_172834",
@@ -27,24 +27,16 @@ MODEL_NAMES = {
     "xx_critical_64": r"Critical XX, $L=64$",
 }
 
-
-@dataclass(frozen=True)
-class Improvement:
-    stem: str
-    prev_iteration: int
-    iteration: int
-    prev_energy: float
-    energy: float
-    final_best_energy: float
-    description: str
-
-    @property
-    def gain_percent(self) -> float:
-        prev_gap = self.prev_energy - self.final_best_energy
-        new_gap = self.energy - self.final_best_energy
-        if prev_gap <= 1e-15:
-            return 0.0
-        return max(0.0, 100.0 * (1.0 - new_gap / prev_gap))
+CHECK_MARK = r"\raisebox{0.08ex}{\ding{51}}"
+CROSS_MARK = r"\raisebox{0.08ex}{\ding{55}}"
+LOG_WIDTHS = [
+    "0.055\\linewidth",
+    "0.055\\linewidth",
+    "0.125\\linewidth",
+    "0.14\\linewidth",
+    "0.557\\linewidth",
+]
+LOG_GAP = r"\hspace{0.007\linewidth}"
 
 
 def tex_escape(text: str) -> str:
@@ -60,142 +52,253 @@ def tex_escape(text: str) -> str:
     return text
 
 
-def format_gain(value: float) -> str:
-    if value >= 1.0:
-        text = f"{value:.2f}"
-    elif value >= 0.01:
-        text = f"{value:.4f}".rstrip("0").rstrip(".")
-    else:
-        text = f"{value:.6f}".rstrip("0").rstrip(".")
-    return text + r"\%"
-
-
-def run_dir(stem: str) -> Path:
-    try:
-        return RUNS[stem]
-    except KeyError as exc:
-        raise KeyError(f"no run directory configured for {stem!r}") from exc
-
-
-def load_rows(stem: str) -> list[dict[str, object]]:
-    path = run_dir(stem) / "logs" / "evaluations.jsonl"
+def read_rows(stem: str) -> list[dict[str, object]]:
+    path = RUNS[stem] / "logs" / "evaluations.jsonl"
     rows: list[dict[str, object]] = []
     for line in path.read_text().splitlines():
         payload = json.loads(line)
         if payload.get("type") != "evaluation":
             continue
         result = payload.get("result") or {}
-        energy = result.get("final_energy")
-        if energy is None:
-            energy = result.get("score")
+        score = result.get("final_energy")
+        if score is None:
+            score = result.get("score")
         rows.append(
             {
                 "iteration": int(payload["iteration"]),
                 "description": str(payload.get("description", "")).strip(),
-                "status": result.get("status"),
-                "final_energy": None if energy is None else float(energy),
+                "status": str(result.get("status", "")),
+                "score": None if score is None else float(score),
+                "config": result.get("config") or {},
             }
         )
     rows.sort(key=lambda row: int(row["iteration"]))
     return rows
 
 
-def improvement_events(stem: str) -> list[Improvement]:
-    rows = load_rows(stem)
-    keep_rows = [
-        (int(row["iteration"]), float(row["final_energy"]), str(row["description"]))
-        for row in rows
-        if row.get("status") == "keep" and row.get("final_energy") is not None
-    ]
-    if not keep_rows:
-        return []
+def keep_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [row for row in rows if row["status"] == "keep" and row["score"] is not None]
 
-    final_best_energy = min(energy for _, energy, _ in keep_rows)
-    events: list[Improvement] = []
-    best_iter, best_energy, _ = keep_rows[0]
-    for iteration, energy, description in keep_rows[1:]:
-        if energy < best_energy - 1e-15:
-            events.append(
-                Improvement(
-                    stem=stem,
-                    prev_iteration=best_iter,
-                    iteration=iteration,
-                    prev_energy=best_energy,
-                    energy=energy,
-                    final_best_energy=final_best_energy,
-                    description=description,
-                )
+
+def best_row(rows: list[dict[str, object]]) -> dict[str, object]:
+    return min(keep_rows(rows), key=lambda row: float(row["score"]))
+
+
+def format_number(value: float) -> str:
+    if value == 0.0:
+        return "0"
+    magnitude = abs(value)
+    if 1e-3 <= magnitude < 1e3:
+        text = f"{value:.6f}".rstrip("0").rstrip(".")
+        return text or "0"
+    return f"{value:.1e}".replace("e-0", "e-").replace("e+0", "e+")
+
+
+def format_score(value: float | None) -> str:
+    if value is None:
+        return r"---"
+    return f"{value:.6f}"
+
+
+def format_relative_gain(previous_score: float | None, current_score: float | None) -> str:
+    if previous_score is None or current_score is None or previous_score == 0.0:
+        return r"---"
+    gain = 100.0 * (previous_score - current_score) / abs(previous_score)
+    if abs(gain) < 5e-5:
+        gain = 0.0
+    if abs(gain) >= 1.0:
+        text = f"{gain:+.2f}"
+    elif abs(gain) >= 0.01:
+        text = f"{gain:+.4f}"
+    else:
+        text = f"{gain:+.6f}"
+    text = text.rstrip("0").rstrip(".")
+    if text in {"+0", "-0"}:
+        text = "+0"
+    return text + r"\%"
+
+
+def summarize_method(cfg: dict[str, object]) -> str:
+    phases = cfg.get("phases")
+    if isinstance(phases, list) and phases:
+        methods = r"$\rightarrow$".join(
+            rf"\texttt{{{tex_escape(str(phase.get('method', '---')))}}}"
+            for phase in phases
+        )
+        states = r"$\rightarrow$".join(
+            rf"\texttt{{{tex_escape(str(phase.get('init_state', '---')))}}}"
+            for phase in phases
+        )
+        return methods + ", " + states + "."
+    parts: list[str] = []
+    method = cfg.get("method")
+    if method:
+        parts.append(rf"\texttt{{{tex_escape(str(method))}}}")
+    init_state = cfg.get("init_state")
+    if init_state:
+        parts.append(rf"\texttt{{{tex_escape(str(init_state))}}}")
+    init_bond_dim = cfg.get("init_bond_dim")
+    if init_bond_dim not in (None, "", 0):
+        parts.append(rf"\texttt{{init\_bond\_dim}}={init_bond_dim}")
+    if not parts:
+        return r"---"
+    return ", ".join(parts) + "."
+
+
+def summarize_solver(cfg: dict[str, object]) -> str:
+    phases = cfg.get("phases")
+    if isinstance(phases, list) and phases:
+        summaries: list[str] = []
+        for idx, phase in enumerate(phases, start=1):
+            label = "warm" if idx == 1 else "refine" if idx == 2 else f"phase {idx}"
+            bond_schedule = phase.get("bond_schedule") or []
+            bond_text = "-".join(str(int(value)) for value in bond_schedule) if bond_schedule else "---"
+            cutoff = format_number(float(phase["cutoff"])) if "cutoff" in phase else "---"
+            solver_tol = format_number(float(phase["solver_tol"])) if "solver_tol" in phase else "---"
+            max_sweeps = int(phase["max_sweeps"]) if "max_sweeps" in phase else "---"
+            summaries.append(
+                rf"{label} \texttt{{bond}}={bond_text}, \texttt{{cutoff}}={cutoff}, "
+                rf"\texttt{{solver\_tol}}={solver_tol}, \texttt{{max\_sweeps}}={max_sweeps}"
             )
-            best_iter, best_energy = iteration, energy
-    return events
+        return "; ".join(summaries[:2]) + "."
+    parts: list[str] = []
+    bond_schedule = cfg.get("bond_schedule")
+    if isinstance(bond_schedule, list) and bond_schedule:
+        bond_text = "-".join(str(int(value)) for value in bond_schedule)
+        parts.append(rf"\texttt{{bond}}={bond_text}")
+    for key in ("cutoff", "solver_tol", "max_sweeps", "local_eig_ncv"):
+        if key in cfg:
+            label = key.replace("_", r"\_")
+            value = cfg[key]
+            if isinstance(value, (int, float)):
+                parts.append(rf"\texttt{{{label}}}={format_number(float(value))}")
+            else:
+                parts.append(rf"\texttt{{{label}}}={tex_escape(str(value))}")
+    if not parts:
+        return r"---"
+    return ", ".join(parts[:5]) + "."
 
 
-def describe_event(event: Improvement) -> str:
-    text = event.description.strip()
-    if not text:
-        return "no mutation summary recorded."
-    if not text.endswith("."):
-        text += "."
-    return tex_escape(text)
-
-
-def zebra_row(cells: list[str], shaded: bool) -> str:
-    widths = ["0.10\\linewidth", "0.15\\linewidth", "0.70\\linewidth"]
-    pieces = [
-        rf"\parbox[c]{{{widths[0]}}}{{\centering {cells[0]}}}",
-        rf"\parbox[c]{{{widths[1]}}}{{\centering {cells[1]}}}",
-        rf"\parbox[c]{{{widths[2]}}}{{{cells[2]}}}",
+def make_summary_table() -> str:
+    lines = [
+        r"\begin{table}[h]",
+        r"\caption{Initial and best archived tensor-network protocols for the four completed $L=64$ critical-spin-chain campaigns used in the supplement.}",
+        r"\label{tab:supp_tn_protocols}",
+        r"\footnotesize",
+        r"\centering",
+        r"\renewcommand{\arraystretch}{1.08}",
+        r"\resizebox{\textwidth}{!}{%",
+        r"\begin{tabular}{l c l l c}",
+        r"\toprule",
+        r"\textbf{Model} & \textbf{Stage} & \textbf{Method / Initial State} & \textbf{Bond and Solver Settings} & \textbf{Final Energy} \\",
+        r"\midrule",
     ]
-    inner = r"\hspace{0.01\linewidth}".join(pieces)
+    for stem in ORDER:
+        rows = read_rows(stem)
+        baseline = rows[0]
+        best = best_row(rows)
+        for stage, row in (
+            ("Initial", baseline),
+            (rf"Optimized ({int(best['iteration'])})", best),
+        ):
+            cfg = row["config"]
+            lines.append(
+                " & ".join(
+                    [
+                        MODEL_NAMES[stem],
+                        stage,
+                        summarize_method(cfg),
+                        summarize_solver(cfg),
+                        format_score(row["score"]),
+                    ]
+                )
+                + r" \\"
+            )
+    lines.extend(
+        [
+            r"\bottomrule",
+            r"\end{tabular}}",
+            r"\end{table}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def log_cell(width: str, text: str, center: bool = False, fixed_height: bool = False) -> str:
+    if fixed_height:
+        return rf"\parbox[t][1.45em][c]{{{width}}}{{\centering\strut {text}}}"
+    if center:
+        return rf"\parbox[t]{{{width}}}{{\centering {text}}}"
+    return rf"\parbox[t]{{{width}}}{{{text}}}"
+
+
+def log_header(cells: list[str]) -> str:
+    pieces = []
+    for width, cell in zip(LOG_WIDTHS, cells):
+        pieces.append(rf"\parbox[c][2.6em][c]{{{width}}}{{\centering {cell}}}")
+    inner = LOG_GAP.join(pieces)
+    return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
+
+
+def log_row(cells: list[str], shaded: bool) -> str:
+    pieces = [
+        log_cell(LOG_WIDTHS[0], cells[0], center=True, fixed_height=True),
+        log_cell(LOG_WIDTHS[1], cells[1], center=True, fixed_height=True),
+        log_cell(LOG_WIDTHS[2], cells[2], center=True),
+        log_cell(LOG_WIDTHS[3], cells[3], center=True),
+        log_cell(LOG_WIDTHS[4], cells[4]),
+    ]
+    inner = LOG_GAP.join(pieces)
     if shaded:
         return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
     return rf"\noindent{inner}\par\smallskip"
 
 
-def header_row(cells: list[str]) -> str:
-    widths = ["0.10\\linewidth", "0.15\\linewidth", "0.70\\linewidth"]
-    pieces = [
-        rf"\parbox[c][2.6em][c]{{{widths[0]}}}{{\centering {cells[0]}}}",
-        rf"\parbox[c][2.6em][c]{{{widths[1]}}}{{\centering {cells[1]}}}",
-        rf"\parbox[c][2.6em][c]{{{widths[2]}}}{{\centering {cells[2]}}}",
-    ]
-    inner = r"\hspace{0.01\linewidth}".join(pieces)
-    return rf"\noindent\colorbox{{black!4}}{{\parbox{{\dimexpr\linewidth-2\fboxsep\relax}}{{{inner}}}}}\par\smallskip"
-
-
-def make_table(stem: str) -> str:
-    model = MODEL_NAMES[stem]
-    label = f"tab:supp_tn_{stem}"
+def make_log_table(stem: str) -> str:
+    rows = read_rows(stem)[1:]
     caption = (
-        rf"All improving {model} iterations. Gains are measured relative to the previous best archived "
-        r"iteration in the same campaign."
+        rf"Tensor-network mutation log for {MODEL_NAMES[stem]}. Relative gain is measured "
+        r"against the immediately previous scored iteration using the live final-energy objective."
     )
     lines = [
         r"\refstepcounter{table}",
-        rf"\label{{{label}}}",
+        rf"\label{{tab:supp_tn_log_{stem}}}",
         rf"\noindent\textbf{{Table \thetable.}} {caption}",
         r"\par\medskip",
         r"\noindent\rule{\linewidth}{0.5pt}",
-        header_row(
+        log_header(
             [
                 r"\textbf{Iter.}",
+                r"\textbf{A/R}",
                 r"\textbf{Relative gain}",
+                r"\textbf{Score}",
                 r"\textbf{Mutation summary}",
             ]
         ),
         r"\noindent\rule{\linewidth}{0.5pt}",
     ]
-    for idx, event in enumerate(improvement_events(stem)):
+
+    previous_score: float | None = None
+    for idx, row in enumerate(rows):
+        status = str(row["status"])
+        mark = CHECK_MARK if status == "keep" else CROSS_MARK
+        score = row["score"]
+        summary = tex_escape(str(row["description"]) or "no mutation summary recorded")
         lines.append(
-            zebra_row(
+            log_row(
                 [
-                    str(event.iteration),
-                    format_gain(event.gain_percent),
-                    describe_event(event),
+                    str(row["iteration"]),
+                    mark,
+                    format_relative_gain(previous_score, score),
+                    format_score(score),
+                    summary,
                 ],
-                shaded=bool(idx % 2),
+                shaded=(idx % 2 == 0),
             )
         )
+        if score is not None:
+            previous_score = float(score)
+
     lines.extend(
         [
             r"\noindent\rule{\linewidth}{0.5pt}",
@@ -205,15 +308,21 @@ def make_table(stem: str) -> str:
     return "\n".join(lines)
 
 
-def main():
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+def make_log_tables() -> str:
     parts: list[str] = []
     for idx, stem in enumerate(ORDER):
         if idx:
             parts.extend(["", r"\medskip", ""])
-        parts.append(make_table(stem))
-    OUTPUT.write_text("\n".join(parts) + "\n")
-    print(OUTPUT)
+        parts.append(make_log_table(stem))
+    return "\n".join(parts) + "\n"
+
+
+def main():
+    PAPER_ROOT.mkdir(parents=True, exist_ok=True)
+    SUMMARY_OUTPUT.write_text(make_summary_table())
+    LOG_OUTPUT.write_text(make_log_tables())
+    print(SUMMARY_OUTPUT)
+    print(LOG_OUTPUT)
 
 
 if __name__ == "__main__":

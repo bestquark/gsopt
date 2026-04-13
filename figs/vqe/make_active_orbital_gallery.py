@@ -30,8 +30,8 @@ BASE_MINIMUM_SPAN = 5.8
 MAX_GRID_EXPANSIONS = 4
 GRID_EXPANSION_FACTOR = 1.35
 
-PHASE_POSITIVE = "#2c7be5"
-PHASE_NEGATIVE = "#cf3f4d"
+PHASE_POSITIVE = "#76B900"
+PHASE_NEGATIVE = "#b14f4f"
 
 ATOM_COLORS = {
     "H": "#f5f3ec",
@@ -356,8 +356,8 @@ def main() -> int:
     ordered_subfigs = [grid[0, 0], grid[0, 1], grid[1, 0], grid[1, 1]]
     for subfig, spec in zip(ordered_subfigs, VQE_SPECS):
         render_molecule_panel(subfig, spec)
-    fig.savefig(OUTPUT_PDF, bbox_inches="tight")
-    fig.savefig(OUTPUT_PNG, dpi=260, bbox_inches="tight")
+    fig.savefig(OUTPUT_PDF, bbox_inches="tight", pad_inches=0.12)
+    fig.savefig(OUTPUT_PNG, dpi=260, bbox_inches="tight", pad_inches=0.12)
     plt.close(fig)
     print(json.dumps({"pdf": str(OUTPUT_PDF), "png": str(OUTPUT_PNG)}, indent=2))
     return 0

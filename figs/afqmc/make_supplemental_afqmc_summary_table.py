@@ -128,9 +128,9 @@ def make_summary_table() -> str:
         r"\caption{Archived baseline and best kept AFQMC protocols for the molecular campaigns reported in the supplement. Each molecule is listed in two rows, with the winning iteration shown in parentheses.}",
         r"\label{tab:supp_afqmc_protocols}",
         r"\centering",
-        r"\setlength{\tabcolsep}{4pt}",
+        r"\setlength{\tabcolsep}{3pt}",
         r"\renewcommand{\arraystretch}{1.12}",
-        r"\begin{tabularx}{\textwidth}{L{0.14\textwidth} C{0.12\textwidth} Y Y C{0.12\textwidth}}",
+        r"\begin{tabularx}{\textwidth}{L{0.10\textwidth} C{0.10\textwidth} Y Y C{0.11\textwidth}}",
         r"\toprule",
         r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Trial / SCF Settings} & \textbf{Walker and Propagation Settings} & \textbf{Live Score} \\",
         r"\midrule",
@@ -142,7 +142,7 @@ def make_summary_table() -> str:
         lines.append(
             " & ".join(
                 [
-                    rf"\multirow{{2}}{{=}}{{{MOLECULE_NAMES[stem]}}}",
+                    rf"\multirow[c]{{2}}{{=}}{{\raggedright {MOLECULE_NAMES[stem]}}}",
                     "Initial",
                     summarize_trial(baseline["config"]),
                     summarize_propagation(baseline["config"]),
@@ -155,7 +155,7 @@ def make_summary_table() -> str:
             " & ".join(
                 [
                     "",
-                    rf"Best ({int(best['iteration'])})",
+                    rf"\shortstack{{Best\\(Iter. {int(best['iteration'])})}}",
                     summarize_trial(best["config"]),
                     summarize_propagation(best["config"]),
                     format_score(best["score"]),

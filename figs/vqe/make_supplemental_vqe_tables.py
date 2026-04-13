@@ -222,9 +222,9 @@ def make_summary_table() -> str:
         r"\caption{Archived baseline and best VQE protocols for the four completed molecular campaigns. Each molecule is listed in two rows, with the winning iteration shown in parentheses.}",
         r"\label{tab:supp_vqe_protocols}",
         r"\centering",
-        r"\setlength{\tabcolsep}{4pt}",
+        r"\setlength{\tabcolsep}{3pt}",
         r"\renewcommand{\arraystretch}{1.12}",
-        r"\begin{tabularx}{\textwidth}{L{0.14\textwidth} C{0.12\textwidth} Y Y C{0.13\textwidth}}",
+        r"\begin{tabularx}{\textwidth}{L{0.10\textwidth} C{0.10\textwidth} Y Y C{0.11\textwidth}}",
         r"\toprule",
         r"\textbf{Molecule} & \textbf{Protocol} & \textbf{Ansatz / Parameterization} & \textbf{Optimizer and Key Settings} & \textbf{Final $|\Delta E|$ [Ha]} \\",
         r"\midrule",
@@ -238,7 +238,7 @@ def make_summary_table() -> str:
         lines.append(
             " & ".join(
                 [
-                    rf"\multirow{{2}}{{=}}{{{MOLECULE_NAMES[stem]}}}",
+                    rf"\multirow[c]{{2}}{{=}}{{\raggedright {MOLECULE_NAMES[stem]}}}",
                     "Initial",
                     summarize_ansatz(baseline_cfg),
                     summarize_optimizer(baseline_cfg),
@@ -251,7 +251,7 @@ def make_summary_table() -> str:
             " & ".join(
                 [
                     "",
-                    rf"Best ({int(best['iteration'])})",
+                    rf"\shortstack{{Best\\(Iter. {int(best['iteration'])})}}",
                     summarize_ansatz(best_cfg),
                     summarize_optimizer(best_cfg),
                     format_error(row_error(best)),

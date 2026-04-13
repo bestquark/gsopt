@@ -25,8 +25,11 @@ LANE_DIR = ROOT / "examples" / "tn"
 FIG_DIR = Path(os.environ.get("AUTORESEARCH_TN_FIG_DIR", Path(__file__).resolve().parent))
 OUTPUT_PDF = FIG_DIR / "tn_mutual_information_error_overview.pdf"
 OUTPUT_PNG = FIG_DIR / "tn_mutual_information_error_overview.png"
+CACHE_JSON = FIG_DIR / "tn_mutual_information_error_overview_cache.json"
 PLOT_ORDER = list(MUTUAL_INFO_MODELS)
 WALL_SECONDS = 20.0
+CACHE_VERSION = 1
+REFRESH_CACHE = os.environ.get("AUTORESEARCH_TN_MI_REFRESH", "").strip().lower() in {"1", "true", "yes"}
 DISPLAY_TITLES = {
     "heisenberg_xxx_64": r"Heisenberg XXX",
     "xxz_gapless_64": r"Gapless XXZ",
@@ -351,10 +354,19 @@ def _panel_note(result: dict, ref_energy_value: float | None, error: np.ndarray)
     )
 
 
-def main():
-    FIG_DIR.mkdir(parents=True, exist_ok=True)
-    configure_style()
+def _cache_entry(model: str, stage: str, result: dict, error: np.ndarray, ref_energy_value: float | None, *, iteration: int | None, run_dir: Path | None) -> dict:
+    return {
+        "model": model,
+        "stage": stage,
+        "iteration": iteration,
+        "run_dir": None if run_dir is None else str(run_dir),
+        "reference_energy": ref_energy_value,
+        "final_energy": float(result["final_energy"]),
+        "error_matrix": error.tolist(),
+    }
 
+
+def _compute_plot_cache() -> dict:
     module_info = {model: _run_modules_for_model(model) for model in PLOT_ORDER}
     raw_exact_matrices = {model: reference_mutual_information(model) for model in PLOT_ORDER}
     missing = [model for model, matrix in raw_exact_matrices.items() if matrix is None]
@@ -365,27 +377,91 @@ def main():
         for model in PLOT_ORDER
     }
 
-    rows: list[list[tuple[str, dict, np.ndarray]]] = [[], []]
-    all_positive_errors: list[float] = []
     reference_energies = {model: reference_energy(model) for model in PLOT_ORDER}
+    rows: list[list[dict]] = [[], []]
 
     for model in PLOT_ORDER:
-        baseline_module = module_info[model]["baseline_module"]
-        optimized_module = module_info[model]["optimized_module"]
+        info = module_info[model]
+        baseline_module = info["baseline_module"]
+        optimized_module = info["optimized_module"]
         baseline_cfg = getattr(baseline_module, "BASELINE_CONFIG", None)
         if baseline_cfg is None:
             raise RuntimeError(f"{model} is missing BASELINE_CONFIG")
         optimized_cfg = getattr(optimized_module, "DEFAULT_CONFIG", None)
         if optimized_cfg is None and not hasattr(optimized_module, "DEFAULT_STRATEGY"):
             raise RuntimeError(f"{model} is missing DEFAULT_CONFIG/DEFAULT_STRATEGY")
+
         exact_matrix = exact_matrices[model]
         baseline_result = _run_result(baseline_module, baseline_cfg)
         optimized_result = _run_result(optimized_module, optimized_cfg)
         baseline_error = _error_matrix(baseline_result, exact_matrix)
         optimized_error = _error_matrix(optimized_result, exact_matrix)
-        rows[0].append((model, baseline_result, baseline_error))
-        rows[1].append((model, optimized_result, optimized_error))
-        for matrix in (baseline_error, optimized_error):
+
+        rows[0].append(
+            _cache_entry(
+                model,
+                "initial",
+                baseline_result,
+                baseline_error,
+                reference_energies[model],
+                iteration=0,
+                run_dir=info["run_dir"],
+            )
+        )
+        rows[1].append(
+            _cache_entry(
+                model,
+                "optimized",
+                optimized_result,
+                optimized_error,
+                reference_energies[model],
+                iteration=info["best_iteration"],
+                run_dir=info["run_dir"],
+            )
+        )
+
+    return {
+        "cache_version": CACHE_VERSION,
+        "models": PLOT_ORDER,
+        "wall_seconds": WALL_SECONDS,
+        "rows": rows,
+    }
+
+
+def _load_plot_cache() -> dict | None:
+    if REFRESH_CACHE or not CACHE_JSON.exists():
+        return None
+    try:
+        payload = json.loads(CACHE_JSON.read_text())
+    except json.JSONDecodeError:
+        return None
+    if payload.get("cache_version") != CACHE_VERSION:
+        return None
+    if payload.get("models") != PLOT_ORDER:
+        return None
+    return payload
+
+
+def _save_plot_cache(payload: dict) -> None:
+    CACHE_JSON.write_text(json.dumps(payload, indent=2))
+
+
+def main():
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    configure_style()
+
+    payload = _load_plot_cache()
+    cache_source = "cache"
+    if payload is None:
+        payload = _compute_plot_cache()
+        _save_plot_cache(payload)
+        cache_source = "recomputed"
+
+    rows = payload["rows"]
+    all_positive_errors: list[float] = []
+    for row in rows:
+        for entry in row:
+            matrix = np.asarray(entry["error_matrix"], dtype=np.float64)
             values = matrix[np.isfinite(matrix) & (matrix > 0.0)]
             all_positive_errors.extend(values.tolist())
 
@@ -394,7 +470,7 @@ def main():
 
     vmin = max(min(all_positive_errors), 1e-8)
     vmax = max(all_positive_errors)
-    cmap = plt.get_cmap("magma").copy()
+    cmap = plt.get_cmap("RdYlGn_r").copy()
     cmap.set_bad("#d9d9d9")
     norm = mcolors.LogNorm(vmin=vmin, vmax=vmax)
 
@@ -404,7 +480,10 @@ def main():
 
     image = None
     for row_index, row in enumerate(rows):
-        for col_index, (model, result, error) in enumerate(row):
+        for col_index, entry in enumerate(row):
+            model = str(entry["model"])
+            result = {"final_energy": float(entry["final_energy"])}
+            error = np.asarray(entry["error_matrix"], dtype=np.float64)
             ax = axes[row_index, col_index]
             image = ax.imshow(error, origin="lower", cmap=cmap, norm=norm, interpolation="nearest")
             nsites = error.shape[0]
@@ -421,7 +500,7 @@ def main():
             ax.text(
                 0.03,
                 0.97,
-                _panel_note(result, reference_energies[model], error),
+                _panel_note(result, entry.get("reference_energy"), error),
                 transform=ax.transAxes,
                 va="top",
                 ha="left",
@@ -445,6 +524,8 @@ def main():
             {
                 "overview_pdf": str(OUTPUT_PDF),
                 "overview_png": str(OUTPUT_PNG),
+                "cache_json": str(CACHE_JSON),
+                "source": cache_source,
                 "models": PLOT_ORDER,
             },
             indent=2,

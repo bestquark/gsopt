@@ -28,6 +28,8 @@ RUNTIME_HELPER_FILENAMES = frozenset(
         "run_eval.py",
         "watchdog.py",
         "campaign.py",
+        "tui.py",
+        "slurm_campaign.py",
     )
 )
 

@@ -84,9 +84,30 @@ uv run python status.py
 uv run python restore_best.py
 uv run python plot.py
 python3 watchdog.py
+python3 tui.py
 python3 campaign.py --agent codex --search
 python3 campaign.py --agent codex --model <model-name> --search
 python3 campaign.py --agent claude --model <model-name>
+```
+
+For cluster runs, submit a self-resubmitting Slurm campaign from inside the run
+directory:
+
+```bash
+python3 slurm_campaign.py --agent codex --time 04:00:00 --cpus-per-task 12 --mem 32G
+python3 slurm_campaign.py --agent claude --partition gpu --gres gpu:1 --setup-command "module load cuda"
+```
+
+Each Slurm job runs one agent launch in the run directory. When the agent exits,
+the job checks `status.py`; if the target mutation count is not done, it submits
+the next `sbatch` job with the same agent and scheduler settings. Slurm state
+lives under `logs/campaign/slurm/` and is shown by `python3 tui.py`.
+
+The TUI can also be run from the package entrypoint:
+
+```bash
+uv run gsopt tui examples/vqe/bh/run_<timestamp>
+uv run gsopt tui examples/vqe/bh/run_<timestamp> --once
 ```
 
 Quickly inspect the mutation history for any run:

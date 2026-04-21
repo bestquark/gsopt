@@ -284,11 +284,23 @@ Optional run-level watchdog in a second terminal:
 python3 watchdog.py
 ```
 
+Live terminal monitor:
+
+```bash
+python3 tui.py
+```
+
 Automatic relaunch loop that keeps waking Codex or Claude until the full
 mutation budget is finished:
 
 ```bash
 python3 campaign.py --agent codex --search
+```
+
+Slurm relaunch loop for clusters:
+
+```bash
+python3 slurm_campaign.py --agent codex --time 04:00:00
 ```
 
 ## Search policy
@@ -475,7 +487,12 @@ def init_run(
     ):
         _write_text(run_dir / script_name, WRAPPER_TEMPLATE.format(entrypoint=entrypoint))
     _write_text(run_dir / "run_eval.py", CLI_WRAPPER_TEMPLATE.format(subcommand="run-eval"))
-    for script_name, subcommand in (("watchdog.py", "watchdog"), ("campaign.py", "campaign")):
+    for script_name, subcommand in (
+        ("watchdog.py", "watchdog"),
+        ("campaign.py", "campaign"),
+        ("tui.py", "tui"),
+        ("slurm_campaign.py", "slurm-campaign"),
+    ):
         _write_text(run_dir / script_name, CONTEXT_CLI_WRAPPER_TEMPLATE.format(subcommand=subcommand))
 
     run_meta = _run_metadata(

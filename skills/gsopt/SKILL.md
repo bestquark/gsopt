@@ -73,7 +73,7 @@ a time, with full archival history.
 - If no evaluator file is present, stop and tell the user there is no evaluator available for scoring yet. Propose creating one or rerunning GSOpt with `--evaluator <path>`.
 - If the editable source file cannot be inferred, stop and ask the user to point to it with `--source <path>`.
 - Treat the evaluator as a fixed scoring contract, not as a mutation target.
-- Inside a scaffolded run directory, also treat `_user_evaluate.py`, `run_eval.py`, `restore_best.py`, `status.py`, `plot.py`, `watchdog.py`, and `campaign.py` as fixed infrastructure unless the user explicitly asks to change GSOpt itself.
+- Inside a scaffolded run directory, also treat `_user_evaluate.py`, `run_eval.py`, `restore_best.py`, `status.py`, `plot.py`, `watchdog.py`, `campaign.py`, `tui.py`, and `slurm_campaign.py` as fixed infrastructure unless the user explicitly asks to change GSOpt itself.
 - Mutate the benchmark method file named by the manifest or benchmark path. Only touch other nearby method-support files when the benchmark truly requires a coupled change and the scoring semantics stay identical.
 - Optimize the evaluator's returned objective, not an assumed proxy. Depending on the benchmark, the objective may be final energy, `delta E`, absolute energy error, or another lower-is-better score.
 - Every scored iteration must include a short technical mutation summary that explicitly names the code change(s) made in that iteration.
@@ -120,6 +120,12 @@ Optional run-level watchdog in a second terminal:
 python3 watchdog.py
 ```
 
+Live terminal monitor:
+
+```bash
+python3 tui.py
+```
+
 If you need a hard guarantee that the agent keeps coming back until the full
 mutation budget is finished, use the bundled campaign driver:
 
@@ -131,6 +137,17 @@ python3 campaign.py --agent claude
 This repeatedly relaunches the agent, checks the logged iteration count, and
 resumes from the next required mutation until `status.py` reports that the run
 hit its target iteration count.
+
+On Slurm clusters, use the self-resubmitting campaign driver instead:
+
+```bash
+python3 slurm_campaign.py --agent codex --time 04:00:00 --cpus-per-task 12 --mem 32G
+python3 slurm_campaign.py --agent claude --partition gpu --gres gpu:1 --setup-command "module load cuda"
+```
+
+Each Slurm job launches one Codex or Claude session in the run directory. When
+that session exits, the job checks `status.py`; if more mutations remain, it
+submits the next `sbatch` job with the same agent and scheduler settings.
 
 ## Search behavior
 
@@ -184,6 +201,8 @@ If you research, keep the output compact and mutation-ready:
 - `python3 run_eval.py -- ...` uses the bundled heartbeat and watchdog scripts to kill stalled scored jobs.
 - If a run stalls at the campaign level, use `python3 watchdog.py` inside the run directory to detect no-progress periods.
 - `python3 campaign.py --agent codex|claude` is the active relaunch loop that wakes the agent again after each launch until the mutation budget is exhausted or repeated launches make no progress.
+- `python3 tui.py` displays live status, campaign state, Slurm job state, and recent scored iterations in a terminal dashboard.
+- `python3 slurm_campaign.py --agent codex|claude ...` writes scheduler state under `logs/campaign/slurm/` and keeps resubmitting `sbatch` jobs until the target iteration count is reached.
 - `logs/evaluations.jsonl` and each snapshot `metadata.json` store the technical mutation summary passed through `--description`.
 
 ## Scope

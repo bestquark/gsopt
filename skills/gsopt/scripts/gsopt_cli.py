@@ -16,12 +16,16 @@ if __package__ in {None, ""}:
     from gsopt_runtime.common import find_skill_root
     from gsopt_runtime.runtime import collect_status, locate_context
     from gsopt_runtime.scaffold import init_run, sync_benchmark_entrypoints
+    from gsopt_runtime.slurm_campaign import run_slurm_step, submit_slurm_campaign
+    from gsopt_runtime.tui import run_tui
 else:
     from .gsopt_runtime.campaign_driver import run_campaign
     from .gsopt_runtime.campaign_watchdog import run_watchdog
     from .gsopt_runtime.common import find_skill_root
     from .gsopt_runtime.runtime import collect_status, locate_context
     from .gsopt_runtime.scaffold import init_run, sync_benchmark_entrypoints
+    from .gsopt_runtime.slurm_campaign import run_slurm_step, submit_slurm_campaign
+    from .gsopt_runtime.tui import run_tui
 
 
 def _run_eval_wrapper(command: list[str], run_dir: Path | None):
@@ -85,6 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
     watchdog_parser.add_argument("--poll-seconds", type=float, default=20.0)
     watchdog_parser.add_argument("--stall-seconds", type=float, default=900.0)
 
+    tui_parser = subparsers.add_parser("tui", help="Open a live terminal monitor for a GSOpt run.")
+    tui_parser.add_argument("path", nargs="?", default=".")
+    tui_parser.add_argument("--refresh-seconds", type=float, default=2.0)
+    tui_parser.add_argument("--once", action="store_true", help="Print one dashboard frame and exit.")
+
     campaign_parser = subparsers.add_parser(
         "campaign",
         help="Repeatedly relaunch Codex or Claude until the run reaches its target iteration count.",
@@ -103,6 +112,57 @@ def build_parser() -> argparse.ArgumentParser:
         help="Extra raw argument passed through to the underlying agent CLI. Repeatable.",
     )
     campaign_parser.add_argument("--dry-run", action="store_true")
+
+    slurm_parser = subparsers.add_parser(
+        "slurm-campaign",
+        help="Submit a self-resubmitting Slurm campaign that relaunches Codex or Claude one job at a time.",
+    )
+    slurm_parser.add_argument("path", nargs="?", default=".")
+    slurm_parser.add_argument("--agent", required=True, choices=("codex", "claude"))
+    slurm_parser.add_argument("--model", default=None)
+    slurm_parser.add_argument("--max-launches", type=int, default=50)
+    slurm_parser.add_argument("--sleep-seconds", type=float, default=5.0)
+    slurm_parser.add_argument("--stall-launches", type=int, default=3)
+    slurm_parser.add_argument("--search", action="store_true", help="Enable web search for agent launches when supported.")
+    slurm_parser.add_argument(
+        "--agent-arg",
+        action="append",
+        default=[],
+        help="Extra raw argument passed through to the underlying agent CLI. Repeatable.",
+    )
+    slurm_parser.add_argument("--partition", default=None)
+    slurm_parser.add_argument("--account", default=None)
+    slurm_parser.add_argument("--qos", default=None)
+    slurm_parser.add_argument("--time", dest="time_limit", default="04:00:00")
+    slurm_parser.add_argument("--cpus-per-task", type=int, default=None)
+    slurm_parser.add_argument("--mem", default=None)
+    slurm_parser.add_argument("--gres", default=None)
+    slurm_parser.add_argument("--constraint", default=None)
+    slurm_parser.add_argument("--job-name", default=None)
+    slurm_parser.add_argument(
+        "--setup-command",
+        action="append",
+        default=[],
+        help="Shell line inserted before the agent launch in each Slurm job. Repeatable.",
+    )
+    slurm_parser.add_argument(
+        "--sbatch-directive",
+        action="append",
+        default=[],
+        help="Additional raw #SBATCH directive, for example '--mail-type=FAIL'. Repeatable.",
+    )
+    slurm_parser.add_argument("--dry-run", action="store_true")
+    slurm_parser.add_argument("--force", action="store_true", help="Submit even if state says a Slurm campaign is active.")
+
+    slurm_step = subparsers.add_parser("slurm-step", help="Internal worker invoked by a GSOpt Slurm campaign job.")
+    slurm_step.add_argument("path", nargs="?", default=".")
+    slurm_step.add_argument("--agent", required=True, choices=("codex", "claude"))
+    slurm_step.add_argument("--model", default=None)
+    slurm_step.add_argument("--max-launches", type=int, default=50)
+    slurm_step.add_argument("--sleep-seconds", type=float, default=5.0)
+    slurm_step.add_argument("--stall-launches", type=int, default=3)
+    slurm_step.add_argument("--search", action="store_true")
+    slurm_step.add_argument("--agent-arg", action="append", default=[])
 
     run_eval = subparsers.add_parser("run-eval", help="Wrap a command with heartbeat and worker watchdog logs.")
     run_eval.add_argument("--run-dir", default=".")
@@ -160,6 +220,9 @@ def main() -> int:
     if args.command == "watchdog":
         return run_watchdog(Path(args.path).resolve(), args.poll_seconds, args.stall_seconds)
 
+    if args.command == "tui":
+        return run_tui(Path(args.path).resolve(), args.refresh_seconds, args.once)
+
     if args.command == "campaign":
         return run_campaign(
             Path(args.path).resolve(),
@@ -171,6 +234,43 @@ def main() -> int:
             args.search,
             list(args.agent_arg),
             args.dry_run,
+        )
+
+    if args.command == "slurm-campaign":
+        return submit_slurm_campaign(
+            Path(args.path).resolve(),
+            agent=args.agent,
+            model=args.model,
+            max_launches=args.max_launches,
+            sleep_seconds=args.sleep_seconds,
+            stall_launches=args.stall_launches,
+            search=args.search,
+            agent_args=list(args.agent_arg),
+            partition=args.partition,
+            account=args.account,
+            qos=args.qos,
+            time_limit=args.time_limit,
+            cpus_per_task=args.cpus_per_task,
+            mem=args.mem,
+            gres=args.gres,
+            constraint=args.constraint,
+            job_name=args.job_name,
+            setup_commands=list(args.setup_command),
+            sbatch_directives=list(args.sbatch_directive),
+            dry_run=args.dry_run,
+            force=args.force,
+        )
+
+    if args.command == "slurm-step":
+        return run_slurm_step(
+            Path(args.path).resolve(),
+            agent=args.agent,
+            model=args.model,
+            max_launches=args.max_launches,
+            sleep_seconds=args.sleep_seconds,
+            stall_launches=args.stall_launches,
+            search=args.search,
+            agent_args=list(args.agent_arg),
         )
 
     if args.command == "run-eval":

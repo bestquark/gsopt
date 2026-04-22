@@ -59,6 +59,22 @@ def _status_line(status: dict) -> str:
     )
 
 
+def _scored_eval_command(context: RunContext) -> str:
+    if str(context.manifest.get("lane", "")) == "generic":
+        return 'python3 run_eval.py -- python3 evaluate.py --description "<technical mutation summary>"'
+    return 'python3 run_eval.py -- uv run python evaluate.py --description "<technical mutation summary>"'
+
+
+def _generic_constraint_line(context: RunContext) -> str:
+    if str(context.manifest.get("lane", "")) != "generic":
+        return ""
+    return (
+        "- Respect the benchmark's stated computational/model constraints. Do not replace the target method with an "
+        "exact full-instance solver; if you use exact linear-algebra primitives, keep them fixed-size or chunked so "
+        "the total inference cost still matches the benchmark limit.\n"
+    )
+
+
 def _build_prompt(context: RunContext, status: dict) -> str:
     agent_prompt_path = context.root_dir / "agent_prompt.md"
     plan_path = context.root_dir / "plan.md"
@@ -67,6 +83,8 @@ def _build_prompt(context: RunContext, status: dict) -> str:
     source_file = context.manifest["source_file"]
     run_dir = context.root_dir
     description = context.manifest.get("display_name", context.manifest.get("benchmark_value", run_dir.name))
+    eval_command = _scored_eval_command(context)
+    generic_constraint = _generic_constraint_line(context)
 
     return f"""You are resuming an existing GSOpt campaign in `{run_dir}` for `{description}`.
 
@@ -78,14 +96,14 @@ Current campaign state:
 Requirements:
 - Continue from the next required iteration and keep going until the target mutation count is reached.
 - One outer iteration = exactly one explicit code mutation, then exactly one scored evaluation.
-- Use `python3 run_eval.py -- uv run python evaluate.py --description "<technical mutation summary>"` for every scored iteration.
+- Use `{eval_command}` for every scored iteration.
 - Make every `--description` a short technical summary that explicitly names the mutation(s) you just made.
 - Read the result of each scored evaluation before choosing the next mutation.
 - If the last result is `discard` or `crash`, restore the best kept state before continuing.
 - Do not stop after one iteration just because you made progress.
 - Do not say you can continue later. Continue now until the run is complete or you hit a real blocker.
 - Do not write internal parameter-sweep loops, hidden search drivers, or scripted batches of future mutations inside the benchmark file.
-- Leave `{source_file}` in the best valid state archived so far whenever you exit.
+{generic_constraint}- Leave `{source_file}` in the best valid state archived so far whenever you exit.
 
 Key run instructions:
 {agent_prompt}

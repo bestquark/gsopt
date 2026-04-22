@@ -8,6 +8,8 @@ Shared benchmark repo for fixed-budget ground-state optimization experiments, in
 npx skills add bestquark/gsopt
 ```
 
+To update an installed skill later, run `npx skills update gsopt -y` or add `-g` for a global install.
+
 For local testing from inside this repo:
 
 ```bash
@@ -31,20 +33,11 @@ The mutation-loop runtime lives under `skills/gsopt/scripts/`. Lane-local queue,
 
 ## GSOpt Workflow
 
-Recommended: use the installed skill from inside Codex or Claude Code.
+Recommended: use the installed skill from inside Codex or Claude Code. The
+skill creates a timestamped `run_<timestamp>/` directory and all monitoring
+tools live inside that run directory.
 
-Codex example:
-
-```bash
-cd examples/vqe/bh
-codex
-```
-
-```text
-$gsopt Run 100 iterations in the current directory. Bias toward structural ansatz improvements.
-```
-
-Claude Code example:
+Claude Code slash-command example:
 
 ```bash
 cd examples/vqe/bh
@@ -53,6 +46,17 @@ claude
 
 ```text
 /gsopt 100 . Bias toward structural ansatz improvements.
+```
+
+Codex skill example:
+
+```bash
+cd examples/vqe/bh
+codex
+```
+
+```text
+$gsopt Run 100 iterations in the current directory. Bias toward structural ansatz improvements.
 ```
 
 You can also target a benchmark from the repo root instead of `cd`-ing first:
@@ -74,7 +78,10 @@ Or from the repo root:
 uv run gsopt 100 examples/tn/tfim_2d_4x4 "Improve the 20-second final energy."
 ```
 
-`uv run gsopt ...` only creates `run_<timestamp>/` and the local GSOpt runtime files. It does not choose or launch the optimizing model by itself. The optimizing agent is whichever Codex or Claude session you use afterward, or whichever agent you relaunch with `campaign.py`.
+`uv run gsopt ...` only creates `run_<timestamp>/` and the local GSOpt runtime
+files. It does not choose or launch the optimizing model by itself. The agent is
+whichever Codex or Claude session you use afterward, or whichever agent you
+relaunch with `campaign.py` / `async_campaign.py`.
 
 After scaffolding, work inside the run directory:
 
@@ -86,29 +93,64 @@ uv run python plot.py
 python3 watchdog.py
 python3 tui.py
 python3 campaign.py --agent codex --search
+python3 async_campaign.py --agent codex --search
 python3 campaign.py --agent codex --model <model-name> --search
 python3 campaign.py --agent claude --model <model-name>
 ```
 
-For cluster runs, submit a self-resubmitting Slurm campaign from inside the run
-directory:
+### TUI
+
+Open the live monitor in another terminal:
+
+```bash
+cd examples/vqe/bh/run_<timestamp>
+python3 tui.py
+```
+
+Or from the repo root:
+
+```bash
+uv run gsopt tui examples/vqe/bh/run_<timestamp>
+uv run gsopt tui examples/vqe/bh/run_<timestamp> --once
+```
+
+The TUI shows the target iteration count, latest score, best score, recent
+evaluations, and any active local async or Slurm campaign state.
+
+### Async Campaigns
+
+For long evaluations, use the async driver:
+
+```bash
+cd examples/vqe/bh/run_<timestamp>
+python3 async_campaign.py --agent codex --search
+```
+
+The async flow is:
+
+1. Wake Codex or Claude for exactly one source mutation.
+2. The agent writes `logs/campaign/pending_mutation.json` and exits.
+3. GSOpt runs the scored evaluation while the agent is asleep.
+4. When scoring finishes, GSOpt restores the best state if needed and wakes a fresh agent session for the next mutation.
+
+This mirrors the Feynman-style background-work model: durable logs under
+`logs/campaign/`, status in `status.json`, and a separate monitor surface via
+`python3 tui.py`.
+
+### Slurm
+
+For cluster runs, submit a self-resubmitting async Slurm campaign from inside
+the run directory:
 
 ```bash
 python3 slurm_campaign.py --agent codex --time 04:00:00 --cpus-per-task 12 --mem 32G
 python3 slurm_campaign.py --agent claude --partition gpu --gres gpu:1 --setup-command "module load cuda"
 ```
 
-Each Slurm job runs one agent launch in the run directory. When the agent exits,
-the job checks `status.py`; if the target mutation count is not done, it submits
-the next `sbatch` job with the same agent and scheduler settings. Slurm state
-lives under `logs/campaign/slurm/` and is shown by `python3 tui.py`.
-
-The TUI can also be run from the package entrypoint:
-
-```bash
-uv run gsopt tui examples/vqe/bh/run_<timestamp>
-uv run gsopt tui examples/vqe/bh/run_<timestamp> --once
-```
+Each Slurm job performs one async mutation/evaluation step. If the target
+mutation count is not done, the job submits the next `sbatch` job with the same
+agent and scheduler settings. Slurm state lives under `logs/campaign/slurm/`
+and is shown by `python3 tui.py`.
 
 Quickly inspect the mutation history for any run:
 

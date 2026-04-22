@@ -65,8 +65,14 @@ def _campaign_state(context: RunContext) -> dict[str, Any] | None:
     return _read_json(context.logs_dir / "campaign" / "campaign_state.json")
 
 
+def _async_state(context: RunContext) -> dict[str, Any] | None:
+    return _read_json(context.logs_dir / "campaign" / "async" / "state.json")
+
+
 def _slurm_state(context: RunContext) -> dict[str, Any] | None:
-    return _read_json(context.logs_dir / "campaign" / "slurm" / "slurm_state.json")
+    return _read_json(context.logs_dir / "campaign" / "slurm" / "state.json") or _read_json(
+        context.logs_dir / "campaign" / "slurm" / "slurm_state.json"
+    )
 
 
 def _rows_from_local_jsonl(context: RunContext) -> list[dict[str, Any]]:
@@ -127,6 +133,7 @@ def _recent_rows(context: RunContext, limit: int = 12) -> list[dict[str, Any]]:
 def _summary_lines(context: RunContext, width: int) -> list[str]:
     status = collect_status(context, write=context.is_run)
     campaign = _campaign_state(context)
+    async_state = _async_state(context)
     slurm = _slurm_state(context)
     completed = int(status.get("completed_mutations") or 0)
     target = int(status.get("target_iterations") or 0)
@@ -153,11 +160,17 @@ def _summary_lines(context: RunContext, width: int) -> list[str]:
             f"launch={campaign.get('launch', campaign.get('launches', '-'))} "
             f"returncode={campaign.get('last_returncode', '-')}"
         )
+    if async_state:
+        lines.append(
+            "async campaign: "
+            f"status={async_state.get('status', '-')} agent_state={async_state.get('agent_state', '-')} "
+            f"launch={async_state.get('launch', async_state.get('launches', '-'))}"
+        )
     if slurm:
         lines.append(
             "slurm campaign: "
             f"status={slurm.get('status', '-')} agent={slurm.get('agent', '-')} "
-            f"job={slurm.get('job_id', '-')} launches={slurm.get('launch_count', '-')} "
+            f"job={slurm.get('job_id', '-')} launch={slurm.get('launch', slurm.get('launch_count', '-'))} "
             f"no_progress={slurm.get('no_progress_count', '-')}"
         )
     lines.append("")

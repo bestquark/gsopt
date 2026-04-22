@@ -13,6 +13,7 @@ if __package__ in {None, ""}:
         sys.path.insert(0, str(_SCRIPTS_ROOT))
     from gsopt_runtime.campaign_driver import run_campaign
     from gsopt_runtime.campaign_watchdog import run_watchdog
+    from gsopt_runtime.async_campaign import run_async_campaign, run_async_step
     from gsopt_runtime.common import find_skill_root
     from gsopt_runtime.runtime import collect_status, locate_context
     from gsopt_runtime.scaffold import init_run, sync_benchmark_entrypoints
@@ -21,6 +22,7 @@ if __package__ in {None, ""}:
 else:
     from .gsopt_runtime.campaign_driver import run_campaign
     from .gsopt_runtime.campaign_watchdog import run_watchdog
+    from .gsopt_runtime.async_campaign import run_async_campaign, run_async_step
     from .gsopt_runtime.common import find_skill_root
     from .gsopt_runtime.runtime import collect_status, locate_context
     from .gsopt_runtime.scaffold import init_run, sync_benchmark_entrypoints
@@ -113,15 +115,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     campaign_parser.add_argument("--dry-run", action="store_true")
 
+    async_parser = subparsers.add_parser(
+        "async-campaign",
+        help="Relaunch the agent between scored evaluations so long runs happen while the agent is asleep.",
+    )
+    async_parser.add_argument("path", nargs="?", default=".")
+    async_parser.add_argument("--agent", required=True, choices=("codex", "claude"))
+    async_parser.add_argument("--model", default=None)
+    async_parser.add_argument("--max-launches", type=int, default=50)
+    async_parser.add_argument("--sleep-seconds", type=float, default=5.0)
+    async_parser.add_argument("--stall-launches", type=int, default=3)
+    async_parser.add_argument("--search", action="store_true")
+    async_parser.add_argument("--agent-arg", action="append", default=[])
+    async_parser.add_argument("--dry-run", action="store_true")
+
+    async_step = subparsers.add_parser("async-step", help="Run one internal async mutation/evaluation step.")
+    async_step.add_argument("path", nargs="?", default=".")
+    async_step.add_argument("--agent", required=True, choices=("codex", "claude"))
+    async_step.add_argument("--model", default=None)
+    async_step.add_argument("--launch-index", type=int, default=1)
+    async_step.add_argument("--search", action="store_true")
+    async_step.add_argument("--agent-arg", action="append", default=[])
+    async_step.add_argument("--dry-run", action="store_true")
+
     slurm_parser = subparsers.add_parser(
         "slurm-campaign",
-        help="Submit a self-resubmitting Slurm campaign that relaunches Codex or Claude one job at a time.",
+        help="Submit a self-resubmitting Slurm async campaign.",
     )
     slurm_parser.add_argument("path", nargs="?", default=".")
     slurm_parser.add_argument("--agent", required=True, choices=("codex", "claude"))
     slurm_parser.add_argument("--model", default=None)
     slurm_parser.add_argument("--max-launches", type=int, default=50)
-    slurm_parser.add_argument("--sleep-seconds", type=float, default=5.0)
     slurm_parser.add_argument("--stall-launches", type=int, default=3)
     slurm_parser.add_argument("--search", action="store_true", help="Enable web search for agent launches when supported.")
     slurm_parser.add_argument(
@@ -159,7 +183,6 @@ def build_parser() -> argparse.ArgumentParser:
     slurm_step.add_argument("--agent", required=True, choices=("codex", "claude"))
     slurm_step.add_argument("--model", default=None)
     slurm_step.add_argument("--max-launches", type=int, default=50)
-    slurm_step.add_argument("--sleep-seconds", type=float, default=5.0)
     slurm_step.add_argument("--stall-launches", type=int, default=3)
     slurm_step.add_argument("--search", action="store_true")
     slurm_step.add_argument("--agent-arg", action="append", default=[])
@@ -236,13 +259,38 @@ def main() -> int:
             args.dry_run,
         )
 
+    if args.command == "async-campaign":
+        return run_async_campaign(
+            Path(args.path).resolve(),
+            args.agent,
+            args.model,
+            args.max_launches,
+            args.sleep_seconds,
+            args.stall_launches,
+            args.search,
+            list(args.agent_arg),
+            args.dry_run,
+        )
+
+    if args.command == "async-step":
+        payload = run_async_step(
+            Path(args.path).resolve(),
+            agent=args.agent,
+            model=args.model,
+            search=args.search,
+            agent_args=list(args.agent_arg),
+            launch_index=args.launch_index,
+            dry_run=args.dry_run,
+        )
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("done") or payload.get("progressed") or payload.get("dry_run") else 1
+
     if args.command == "slurm-campaign":
         return submit_slurm_campaign(
             Path(args.path).resolve(),
             agent=args.agent,
             model=args.model,
             max_launches=args.max_launches,
-            sleep_seconds=args.sleep_seconds,
             stall_launches=args.stall_launches,
             search=args.search,
             agent_args=list(args.agent_arg),
@@ -267,7 +315,6 @@ def main() -> int:
             agent=args.agent,
             model=args.model,
             max_launches=args.max_launches,
-            sleep_seconds=args.sleep_seconds,
             stall_launches=args.stall_launches,
             search=args.search,
             agent_args=list(args.agent_arg),

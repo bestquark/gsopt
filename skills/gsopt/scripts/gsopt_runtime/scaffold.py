@@ -237,6 +237,23 @@ def _plan_markdown(manifest: dict, run_meta: dict) -> str:
     objective = manifest["objective_text"]
     evaluation_mode = run_meta["evaluation_mode"]
     max_parallel = run_meta["max_parallel"]
+    lane = str(manifest.get("lane", ""))
+    if lane == "generic":
+        scored_eval_cmd = 'python3 run_eval.py -- python3 evaluate.py --description "<technical mutation summary>"'
+        restore_cmd = "python3 restore_best.py"
+        status_cmd = "python3 status.py"
+        plot_cmd = "python3 plot.py"
+        generic_policy = (
+            "- Respect the benchmark's stated computational/model constraints. Do not replace the target method with "
+            "an exact full-instance solver; if you use exact linear-algebra primitives, keep them fixed-size or "
+            "chunked so the total inference cost still matches the benchmark limit."
+        )
+    else:
+        scored_eval_cmd = 'python3 run_eval.py -- uv run python evaluate.py --description "<technical mutation summary>"'
+        restore_cmd = "uv run python restore_best.py"
+        status_cmd = "uv run python status.py"
+        plot_cmd = "uv run python plot.py"
+        generic_policy = ""
     queue_line = (
         "Serialized scoring: at most one scored evaluation runs at a time."
         if evaluation_mode == "serialized"
@@ -257,25 +274,25 @@ def _plan_markdown(manifest: dict, run_meta: dict) -> str:
 Scored evaluations from inside the run directory:
 
 ```bash
-python3 run_eval.py -- uv run python evaluate.py --description "<technical mutation summary>"
+{scored_eval_cmd}
 ```
 
 Restore the best kept iteration:
 
 ```bash
-uv run python restore_best.py
+{restore_cmd}
 ```
 
 Check progress:
 
 ```bash
-uv run python status.py
+{status_cmd}
 ```
 
 Render local figures:
 
 ```bash
-uv run python plot.py
+{plot_cmd}
 ```
 
 Optional run-level watchdog in a second terminal:
@@ -297,6 +314,12 @@ mutation budget is finished:
 python3 campaign.py --agent codex --search
 ```
 
+Async relaunch loop where scored evaluations run while the agent is asleep:
+
+```bash
+python3 async_campaign.py --agent codex --search
+```
+
 Slurm relaunch loop for clusters:
 
 ```bash
@@ -316,6 +339,7 @@ python3 slurm_campaign.py --agent codex --time 04:00:00
 - Read the last scored result before choosing the next mutation.
 - If a scored run is `discard` or `crash`, restore the best kept iteration before continuing.
 - Be really creative about reducing the scored objective: once tiny tolerance or seed tweaks plateau, prefer structural changes that alter the search geometry or ansatz quality.
+{generic_policy}
 - Do not pre-script batches of future iterations, seed sweeps, or offline probes outside the scored evaluator.
 """
 
@@ -326,10 +350,18 @@ def _agent_prompt(manifest: dict, run_meta: dict) -> str:
     evaluator_file = manifest.get("evaluator_file", "evaluate.py")
     evaluation_mode = run_meta["evaluation_mode"]
     max_parallel = run_meta["max_parallel"]
+    lane = str(manifest.get("lane", ""))
     queue_policy = (
         "Scoring for this run is serialized. Run one scored evaluation at a time."
         if evaluation_mode == "serialized"
         else f"Scoring for this run allows up to {max_parallel} concurrent evaluations, but you still must not batch blind future mutations."
+    )
+    generic_constraint = (
+        "- Respect the benchmark's stated computational/model constraints. Do not replace the target method with an exact "
+        "full-instance solver; if you use exact linear-algebra primitives, keep them fixed-size or chunked so the total "
+        "inference cost still matches the benchmark limit.\n"
+        if lane == "generic"
+        else ""
     )
     return f"""You own exactly one benchmark run directory.
 
@@ -351,6 +383,7 @@ Hard constraints:
 - If the last result is `discard` or `crash`, restore the best kept iteration before continuing.
 - Do not batch future mutations.
 - Do not use offline probes, parameter sweeps, or hidden menu-search code paths.
+{generic_constraint}
 
 Creativity guidance:
 - Be really creative to come up with ways of lowering the score, usually by improving ground-state energy or its error under the fixed budget.
@@ -490,6 +523,7 @@ def init_run(
     for script_name, subcommand in (
         ("watchdog.py", "watchdog"),
         ("campaign.py", "campaign"),
+        ("async_campaign.py", "async-campaign"),
         ("tui.py", "tui"),
         ("slurm_campaign.py", "slurm-campaign"),
     ):

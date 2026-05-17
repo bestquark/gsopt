@@ -1,5 +1,9 @@
 # gsopt
 
+<p align="center">
+  <img src="assets/gsopt_logo.png" alt="GSOpt logo" width="720">
+</p>
+
 Shared benchmark repo for fixed-budget ground-state optimization experiments, internal baselines, and agent-driven mutation loops.
 
 ## Install the Skill
